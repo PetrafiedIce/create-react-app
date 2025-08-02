@@ -12,8 +12,8 @@ const Hero = () => {
 
   return (
     <section className="hero">
-      <h2>Welcome to KingdomCraft</h2>
-      <p>Your next adventure awaits.</p>
+      <h2>KingdomCraft SMP & Events</h2>
+      <p>Survive, compete, and hang out with Just Games.</p>
       <a href="#join" className="cta" onClick={handleJoinClick}>
         Join Now
       </a>

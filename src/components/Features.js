@@ -2,9 +2,9 @@ import React from 'react';
 import './Features.css';
 
 const features = [
-  { icon: '🌍', title: 'Custom Worlds', desc: 'Explore unique landscapes and challenges.' },
-  { icon: '🤝', title: 'Friendly Community', desc: 'Meet players and build together.' },
-  { icon: '🎮', title: 'Minigames', desc: 'Compete in fun mini-games.' },
+  { icon: '⛏️', title: 'Survival SMP', desc: 'Build, mine, and thrive in a persistent world.' },
+  { icon: '🎉', title: 'Event Nights', desc: 'Jump into weekly challenges and competitions.' },
+  { icon: '🎮', title: 'Just Games', desc: 'Visit our partner server for mini-games galore.' },
 ];
 
 const Features = () => (

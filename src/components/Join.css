@@ -1,15 +1,23 @@
+.join {
+  padding: 6rem 1rem;
+  text-align: center;
+  background: linear-gradient(135deg, #550000, #000);
+  color: #fff;
+}
 
- .join {
-   padding: 6rem 1rem;
-   text-align: center;
-   background: linear-gradient(135deg, #550000, #000);
-   color: #fff;
- }
+.join h2 {
+  margin-bottom: 1rem;
+  color: #d4af37;
+}
 
- .join h2 {
-   margin-bottom: 1rem;
-   color: #d4af37;
- }
+.discord-note {
+  margin-top: 0.5rem;
+}
+
+.discord-note a {
+  color: #ffd700;
+  text-decoration: none;
+}
 
 .join-buttons {
   display: flex;
@@ -18,17 +26,17 @@
   margin-top: 1.5rem;
 }
 
- .btn {
-   background: linear-gradient(90deg, #d4af37, #ffd700);
-   color: #000;
-   padding: 0.75rem 1.5rem;
-   border-radius: 50px;
-   text-decoration: none;
-   transition: transform 0.3s, box-shadow 0.3s;
-   box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
- }
+.btn {
+  background: linear-gradient(90deg, #d4af37, #ffd700);
+  color: #000;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
+  text-decoration: none;
+  transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+}
 
- .btn:hover {
-   transform: translateY(-5px);
-   box-shadow: 0 0 20px rgba(212, 175, 55, 0.8);
- }
+.btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.8);
+}

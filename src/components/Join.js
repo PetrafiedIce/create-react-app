@@ -4,7 +4,11 @@ import './Join.css';
 const Join = () => (
   <section id="join" className="join">
     <h2>Join the Server</h2>
-    <p>IP: play.kingdomcraft.net</p>
+    <p>Server IP: kingdomcraft.net</p>
+    <p className="discord-note">
+      You can always find the IP pinned in our
+      {' '}<a href="https://discord.kingdomcraft.net" target="_blank" rel="noopener noreferrer">Discord</a>.
+    </p>
     <div className="join-buttons">
       <a
         href="https://discord.kingdomcraft.net"

@@ -5,6 +5,7 @@ const features = [
   { icon: '⛏️', title: 'Survival SMP', desc: 'Build, mine, and thrive in a persistent world.' },
   { icon: '🎉', title: 'Event Nights', desc: 'Jump into weekly challenges and competitions.' },
   { icon: '🎮', title: 'Just Games', desc: 'Visit our partner server for mini-games galore.' },
+  { icon: '🕹️', title: 'Site Mini Game', desc: 'Kill time with our Block Clicker right here.' },
 ];
 
 const Features = () => (

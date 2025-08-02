@@ -22,6 +22,11 @@
   animation: shine 5s linear infinite;
 }
 
+.logo a {
+  color: inherit;
+  text-decoration: none;
+}
+
 .nav-links {
   list-style: none;
   display: flex;

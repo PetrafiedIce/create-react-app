@@ -1,0 +1,19 @@
+.block-clicker {
+  text-align: center;
+  padding: 4rem 1rem;
+}
+
+.block-clicker .block {
+  width: 80px;
+  height: 80px;
+  margin: 2rem auto;
+  background: linear-gradient(135deg, #00ff87, #60efff);
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  transition: transform 0.1s;
+}
+
+.block-clicker .block:active {
+  transform: scale(0.95);
+}

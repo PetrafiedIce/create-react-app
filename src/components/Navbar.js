@@ -3,7 +3,7 @@ import './Navbar.css';
 
 const Navbar = () => (
   <nav className="navbar">
-    <h1 className="logo">BlockRealm</h1>
+    <h1 className="logo">KingdomCraft</h1>
     <ul className="nav-links">
       <li><a href="#features">Features</a></li>
       <li><a href="#join">Join</a></li>

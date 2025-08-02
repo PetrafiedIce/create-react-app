@@ -3,7 +3,7 @@ import './Footer.css';
 
 const Footer = () => (
   <footer className="footer">
-    <p>© {new Date().getFullYear()} BlockRealm. Not affiliated with Mojang.</p>
+    <p>© {new Date().getFullYear()} KingdomCraft. Not affiliated with Mojang.</p>
   </footer>
 );
 

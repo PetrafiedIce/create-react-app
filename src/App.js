@@ -7,11 +7,22 @@ export default function App() {
         <h1>KingdomCraft</h1>
         <p className="tagline">A new era of Minecraft SMP adventures.</p>
         <div className="ip-box">
-          <span>play.kingdomcraft.net</span>
+          <span>kingdomcraft.net</span>
         </div>
         <div className="links">
-          <a href="https://discord.gg/yourInvite" target="_blank" rel="noopener noreferrer">
+          <a
+            href="https://discord.kingdomcraft.net"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Join our Discord
+          </a>
+          <a
+            href="https://store.kingdomcraft.net"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Visit the Store
           </a>
         </div>
       </header>

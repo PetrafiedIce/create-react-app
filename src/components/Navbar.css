@@ -3,9 +3,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background: rgba(17, 17, 17, 0.6);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.3);
   color: #fff;
   position: sticky;
   top: 0;
@@ -15,7 +15,7 @@
 .logo {
   font-size: 1.5rem;
   font-weight: 600;
-  background: linear-gradient(90deg, #4caf50, #81c784);
+  background: linear-gradient(90deg, #d4af37, #ffd700);
   background-size: 200% auto;
   color: transparent;
   -webkit-background-clip: text;
@@ -37,7 +37,7 @@
 }
 
 .nav-links a:hover {
-  color: #4caf50;
+  color: #ffd700;
   transform: translateY(-2px);
 }
 

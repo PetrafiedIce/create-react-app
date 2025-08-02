@@ -1,25 +1,21 @@
-import logo from './logo.svg';
 import './App.css';
 
-function App() {
+export default function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+    <div className="landing">
+      <header className="hero">
+        <h1>KingdomCraft</h1>
+        <p className="tagline">A new era of Minecraft SMP adventures.</p>
+        <div className="ip-box">
+          <span>play.kingdomcraft.net</span>
+        </div>
+        <div className="links">
+          <a href="https://discord.gg/yourInvite" target="_blank" rel="noopener noreferrer">
+            Join our Discord
+          </a>
+        </div>
       </header>
     </div>
   );
 }
 
-export default App;

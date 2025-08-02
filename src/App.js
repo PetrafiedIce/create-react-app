@@ -1,5 +1,6 @@
 import logo from './logo.svg';
 import './App.css';
+import RippleButton from './components/RippleButton';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         >
           Learn React
         </a>
+        <RippleButton style={{ marginTop: '1rem' }}>Click Me</RippleButton>
       </header>
     </div>
   );

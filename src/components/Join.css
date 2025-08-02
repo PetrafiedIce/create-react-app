@@ -1,6 +1,9 @@
+
 .join {
-  padding: 4rem 1rem;
+  padding: 6rem 1rem;
   text-align: center;
+  background: linear-gradient(135deg, #1b2735, #090a0f);
+  color: #fff;
 }
 
 .join h2 {
@@ -15,15 +18,16 @@
 }
 
 .btn {
-  background: #4caf50;
+  background: linear-gradient(90deg, #4caf50, #66bb6a);
   color: #fff;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 50px;
   text-decoration: none;
   transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
 }
 
 .btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transform: translateY(-5px);
+  box-shadow: 0 0 20px rgba(76, 175, 80, 0.8);
 }

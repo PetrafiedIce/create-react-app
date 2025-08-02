@@ -9,17 +9,19 @@
   background-size: 400% 400%;
   animation: gradientShift 15s ease infinite;
   color: #fff;
-  min-height: 70vh;
+  min-height: 100vh;
 }
 
 .hero h2 {
-  font-size: 3rem;
+  font-size: 4rem;
   margin-bottom: 1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .hero p {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   margin-bottom: 2rem;
+  max-width: 600px;
 }
 
 .cta {

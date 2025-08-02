@@ -1,0 +1,15 @@
+.blur-text span {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateY(20px);
+  animation: blur-in 0.8s forwards;
+}
+
+@keyframes blur-in {
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}

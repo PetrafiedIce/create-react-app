@@ -29,3 +29,32 @@ Launches the test runner in the interactive watch mode. See the section about [r
 Builds the app for production to the `build` folder.
 
 It correctly bundles React in production mode and optimizes the build for the best performance. The build is minified and the filenames include the hashes.
+
+## Livestream + Embeddable Player
+
+- Set your HLS playback URL in a `.env` file at the project root:
+  - `REACT_APP_HLS_URL=https://your-cdn.example.com/live/index.m3u8`
+- Start the app: `pnpm start` or build: `pnpm build`
+
+### OBS Setup
+- Service: Custom...
+- Server: `rtmp://YOUR_INGEST/live`
+- Stream key: `YOUR_KEY`
+- Start streaming. Your backend should generate an HLS playback URL (`.m3u8`).
+
+### Embedding
+Use this iframe (replace YOUR_ENCODED_HLS_URL with `encodeURIComponent('https://...m3u8')`):
+
+```html
+<iframe
+  src="https://your-domain.tld/#/embed?src=YOUR_ENCODED_HLS_URL&autoplay=1&muted=1"
+  width="100%"
+  height="100%"
+  style="border:0; aspect-ratio:16/9;"
+  allow="autoplay; fullscreen; picture-in-picture">
+</iframe>
+```
+
+Optional query params: `controls=0|1`, `poster=https://...jpg`, `pip=0|1`.
+
+If embedding cross-origin, ensure your hosting does not send `X-Frame-Options: DENY` and allows `Content-Security-Policy: frame-ancestors` per your needs.

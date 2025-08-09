@@ -4,13 +4,10 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { sendToVercelAnalytics } from './vitals';
-import { HashRouter } from 'react-router-dom';
 
 ReactDOM.render(
   <React.StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
+    <App />
   </React.StrictMode>,
   document.getElementById('root')
 );

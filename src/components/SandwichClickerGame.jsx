@@ -112,19 +112,6 @@ export default function SandwichClickerGame() {
     }
   }, []);
 
-  // Keyboard click support
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.repeat) return;
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault();
-        handleClick();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleClick]);
-
   // Derived stats
   const spsMult = useMemo(() => {
     return upgradesPurchased.reduce((m, id) => {
@@ -169,6 +156,19 @@ export default function SandwichClickerGame() {
     setTotalSandwiches(prev => prev + gainFromClick);
     addFloater(`+${formatNumber(gainFromClick)}`);
   }, [clickPower, sps, clickSpsShare, addFloater]);
+
+  // Keyboard click support (moved below handleClick)
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.repeat) return;
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        handleClick();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleClick]);
 
   // Passive income per second
   useInterval(() => {

@@ -1,31 +1,100 @@
-# Create React App
+# OBS Player
 
-This directory is a brief example of a [Create React App](https://github.com/facebook/create-react-app) site that can be deployed to Vercel with zero configuration.
+## Local dev
 
-## Deploy Your Own
+```
+npm install
+npm start
+```
 
-Deploy your own Create React App project with Vercel.
+Visit http://localhost:3000/ and /admin
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/framework-boilerplates/create-react-app&template=create-react-app)
+## Deploy to Vercel
 
-_Live Example: https://create-react-template.vercel.app/_
+Framework preset: Create React App (or “Other”)
 
-## Available Scripts
+Build command: npm run build
 
-In the project directory, you can run:
+Output directory: build
 
-### `npm start`
+SPA routing: the provided vercel.json handles /admin refreshes
 
-Runs the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## OBS → HLS (your own VPS)
 
-The page will reload when you make changes. You may also see any lint errors in the console.
+Minimal nginx.conf example:
 
-### `npm test`
+```
+worker_processes  auto;
+events { worker_connections 1024; }
+rtmp {
+  server {
+    listen 1935;
+    chunk_size 4096;
+    application live {
+      live on;
+      record off;
+      hls on;
+      hls_path /var/www/live;
+      hls_fragment 2s;
+      hls_playlist_length 6s;
+    }
+  }
+}
+http {
+  include       mime.types;
+  default_type  application/octet-stream;
+  sendfile on;
+  tcp_nopush on;
+  server {
+    listen 80;
+    server_name your-domain.tld;
+    root /var/www;
+    location /live/ {
+      add_header Access-Control-Allow-Origin *;
+      add_header Cache-Control no-cache;
+      types {
+        application/vnd.apple.mpegurl m3u8;
+        video/mp2t ts;
+      }
+    }
+  }
+}
+```
 
-Launches the test runner in the interactive watch mode. See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+OBS settings:
 
-### `npm run build`
+Server: rtmp://your-domain.tld/live
 
-Builds the app for production to the `build` folder.
+Stream key: stream
 
-It correctly bundles React in production mode and optimizes the build for the best performance. The build is minified and the filenames include the hashes.
+Your HLS URL becomes: https://your-domain.tld/live/stream.m3u8
+
+## OBS → WebRTC (WHIP) with OvenMediaEngine
+
+Install OME; enable WHIP input (docs).
+
+In OBS, set Stream Service: WHIP, URL like https://your-domain.tld/app/whip?key=STREAM_KEY.
+
+Playback URL (for src): OME’s WebRTC play endpoint (often wss://your-domain.tld/app/stream or similar per OME config).
+
+## CORS note
+
+If the HLS .m3u8/.ts live on a different origin than this CRA site, ensure the HLS server sends Access-Control-Allow-Origin: *. Vercel cannot add CORS headers to another origin.
+
+## Minecraft WebDisplays tip
+
+Open https://your-domain.tld/?src=...&type=... inside the in-game screen.
+
+Keep page minimal and bump the in-game screen resolution for readability.
+
+## Acceptance tests:
+
+/?src=https://example.com/live/stream.m3u8&type=hls plays via HLS on Chrome/Firefox (hls.js) and Safari (native).
+
+/?src=wss://your-domain.tld/app/stream&type=webrtc plays via WebRTC using OvenPlayer with low latency.
+
+/admin saves defaults (localStorage), generates link, and “Open Player” navigates correctly.
+
+No scrollbars at any viewport; black background; video covers screen.
+
+TypeScript compiles cleanly with strict: true.

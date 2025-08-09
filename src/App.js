@@ -1,22 +1,23 @@
-import logo from './logo.svg';
+import { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+        <div className="card">
+          <h1>Super Modern Site</h1>
+          <p>Welcome to the future of web design.</p>
+          <button onClick={() => setDarkMode(!darkMode)}>
+            {darkMode ? 'Light Mode' : 'Dark Mode'}
+          </button>
+        </div>
       </header>
     </div>
   );

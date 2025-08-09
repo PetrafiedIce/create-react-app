@@ -1,31 +1,52 @@
-# Create React App
+# Minimal Stream Player
 
-This directory is a brief example of a [Create React App](https://github.com/facebook/create-react-app) site that can be deployed to Vercel with zero configuration.
+Pure HTML/CSS/JS pages for showing a live video stream. Designed to work inside Minecraft WebDisplays and on desktop and mobile browsers.
 
-## Deploy Your Own
+## Features
 
-Deploy your own Create React App project with Vercel.
+- `index.html?src=...` fullscreen player for YouTube or `.m3u8` HLS streams.
+- `?loop=true` to loop VODs.
+- `?controls=1` to show YouTube controls.
+- `admin.html` stores a default source in `localStorage` and builds links.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/framework-boilerplates/create-react-app&template=create-react-app)
+## YouTube method (easiest)
 
-_Live Example: https://create-react-template.vercel.app/_
+1. Start an unlisted YouTube Live and copy the video URL.
+2. Open `admin.html` and paste the link.
+3. Click **Save**, then **Open Player** or copy the generated link to launch `index.html?src=<your-url>`.
 
-## Available Scripts
+## Self-hosted HLS
 
-In the project directory, you can run:
+Example Nginx + RTMP configuration that outputs an HLS playlist:
 
-### `npm start`
+```
+rtmp {
+    server {
+        listen 1935;
+        application live {
+            live on;
+            record off;
+            hls on;
+            hls_path /tmp/hls;
+            hls_fragment 3;
+            hls_playlist_length 10;
+        }
+    }
+}
+http {
+    server {
+        listen 8080;
+        location /live {
+            add_header 'Cache-Control' 'no-cache';
+            types {};
+            root /tmp/hls;
+        }
+    }
+}
+```
 
-Runs the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Push a stream to `rtmp://yourserver/live/stream` and use `http://yourserver:8080/live/stream.m3u8` as the `src`.
 
-The page will reload when you make changes. You may also see any lint errors in the console.
+## Minecraft WebDisplays
 
-### `npm test`
-
-Launches the test runner in the interactive watch mode. See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.
-
-It correctly bundles React in production mode and optimizes the build for the best performance. The build is minified and the filenames include the hashes.
+Use your domain URL pointing to `index.html?src=...`. Set the screen resolution high enough and keep the page lightweight for best performance.

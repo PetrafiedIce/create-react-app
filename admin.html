@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stream Admin</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="stage">
+  <div class="center">
+    <form id="adminForm" class="center">
+      <input id="src" type="text" placeholder="YouTube link or .m3u8 URL" required>
+      <label><input type="checkbox" id="loop"> Loop</label>
+      <label><input type="checkbox" id="controls"> YouTube Controls</label>
+      <button type="submit">Save</button>
+    </form>
+    <input id="link" readonly>
+    <button id="open">Open Player</button>
+  </div>
+</div>
+<script>
+(function(){
+  const srcInput = document.getElementById('src');
+  const loopInput = document.getElementById('loop');
+  const controlsInput = document.getElementById('controls');
+  const linkOutput = document.getElementById('link');
+  const form = document.getElementById('adminForm');
+  const openBtn = document.getElementById('open');
+
+  function load(){
+    srcInput.value = localStorage.getItem('defaultSrc') || '';
+    loopInput.checked = localStorage.getItem('defaultLoop') === 'true';
+    controlsInput.checked = localStorage.getItem('defaultControls') === 'true';
+    updateLink();
+  }
+
+  function updateLink(){
+    const src = srcInput.value.trim();
+    let url = 'index.html';
+    if(src){
+      url += '?src=' + encodeURIComponent(src);
+      if(loopInput.checked) url += '&loop=true';
+      if(controlsInput.checked) url += '&controls=1';
+    }
+    linkOutput.value = url;
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    localStorage.setItem('defaultSrc', srcInput.value.trim());
+    localStorage.setItem('defaultLoop', loopInput.checked);
+    localStorage.setItem('defaultControls', controlsInput.checked);
+    updateLink();
+  });
+
+  srcInput.addEventListener('input', updateLink);
+  loopInput.addEventListener('change', updateLink);
+  controlsInput.addEventListener('change', updateLink);
+
+  openBtn.addEventListener('click', () => {
+    window.location.href = linkOutput.value;
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

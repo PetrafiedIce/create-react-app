@@ -312,12 +312,21 @@ export default function HomeworkApp() {
     'Done is better than perfect.',
     'Start now; future you will thank you.',
     'Progress, not perfection.',
+    'One page, one problem, one step.',
+    'Show up. Even a little counts.',
+    'Make it easy to start; momentum will follow.',
+    'Aim for consistent, not extreme.',
+    'You only need to begin.',
   ];
   const [messageIdx, setMessageIdx] = useState(() => Math.floor(Math.random() * messages.length));
+  const [messageKey, setMessageKey] = useState(() => generateId());
   useEffect(() => {
-    const id = setInterval(() => setMessageIdx(i => (i + 1) % messages.length), 8000);
+    const id = setInterval(() => {
+      setMessageIdx(i => (i + 1) % messages.length);
+      setMessageKey(generateId());
+    }, 8000);
     return () => clearInterval(id);
-  }, []);
+  }, [messages.length]);
 
   // Ensure view follows activeTab
   useEffect(() => { if (activeTab === 'calendar') setView('calendar'); else setView('board'); }, [activeTab, setView]);
@@ -860,7 +869,9 @@ export default function HomeworkApp() {
       <section className="hero fade-in" onClick={() => setMenuOpen(false)}>
         <div className="hero-inner">
           <div>
-            <h1 className="hero-title">{messages[messageIdx]}</h1>
+            <div className="hero-message">
+              <h1 key={messageKey} className="hero-title slide-in">{messages[messageIdx]}</h1>
+            </div>
             <p className="hero-subtitle">Stay consistent. The habits make the grade.</p>
           </div>
           <div className="stat-cards">

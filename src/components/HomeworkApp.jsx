@@ -158,33 +158,19 @@ function InlineDatePicker({ valueISO, onChange }) {
   );
 }
 
-function TaskForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
+function AssignmentForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
   const [title, setTitle] = useState(initialTask.title ?? '');
   const [subject, setSubject] = useState(initialTask.subject ?? '');
   const [notes, setNotes] = useState(initialTask.notes ?? '');
   const [priority, setPriority] = useState(initialTask.priority ?? 'medium');
-  const [status, setStatus] = useState(initialTask.status ?? 'todo');
   const [dueAtISO, setDueAtISO] = useState(initialTask.dueAt ?? null);
   const [estimatedMinutes, setEstimatedMinutes] = useState(initialTask.estimatedMinutes ?? 60);
   const [repeat, setRepeat] = useState(initialTask.repeat ?? 'none');
   const [reminderMinutes, setReminderMinutes] = useState(initialTask.reminderMinutesBefore ?? 0);
-  const [subtasks, setSubtasks] = useState(Array.isArray(initialTask.subtasks) ? initialTask.subtasks : []);
 
-  const suggestedSubjects = subjectsList && subjectsList.length ? subjectsList : [];
   const quickDurations = [15, 30, 45, 60, 90];
-  const priorities = ['low','medium','high'];
-  const repeatOptions = ['none','daily','weekly','monthly'];
   const reminderQuick = [0, 10, 30, 60, 120];
-
-  const addSubtask = () => {
-    setSubtasks(prev => [...prev, { id: generateId(), text: '' , done: false }]);
-  };
-  const updateSubtaskText = (id, text) => {
-    setSubtasks(prev => prev.map(s => s.id === id ? { ...s, text } : s));
-  };
-  const removeSubtask = (id) => {
-    setSubtasks(prev => prev.filter(s => s.id !== id));
-  };
+  const priorities = ['low','medium','high'];
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -196,117 +182,103 @@ function TaskForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
       subject: subject.trim(),
       notes: notes.trim(),
       priority,
-      status,
       dueAt: dueAtISO,
       estimatedMinutes: Number(estimatedMinutes) || 0,
       repeat,
       reminderMinutesBefore: Number(reminderMinutes) || 0,
-      subtasks: subtasks.map(s => ({ id: s.id || generateId(), text: String(s.text || ''), done: Boolean(s.done) })),
       updatedAt: new Date().toISOString(),
     });
   };
 
   return (
-    <form className="task-form" onSubmit={handleSubmit}>
-      <div className="form-section">
-        <div className="section-title">Basics</div>
-        <label className="field">
-          <span className="label">Title</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Math worksheet on fractions" required />
+    <form className="af-form" onSubmit={handleSubmit}>
+      <div className="af-section">
+        <div className="af-title">Basics</div>
+        <label className="af-field">
+          <span className="af-label">Title</span>
+          <input className="input" placeholder="Math worksheet on fractions" value={title} onChange={(e)=>setTitle(e.target.value)} required />
         </label>
-        <label className="field">
-          <span className="label">Subject</span>
+        <label className="af-field">
+          <span className="af-label">Subject</span>
+          <div className="chip-group" style={{ marginBottom: 6 }}>
+            {subjectsList.map(s => (
+              <button key={s} type="button" className={`btn btn-ghost chip-btn ${subject===s?'active':''}`} onClick={()=>setSubject(s)}>{s}</button>
+            ))}
+            <button type="button" className="btn btn-ghost chip-btn" title="Add new subject" onClick={()=>{ const name=(prompt('New subject name')||'').trim(); if(name) setSubject(name); }}>＋ New</button>
+          </div>
           <select
             className="input"
             value={subject}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === '__new__') {
-                const name = (prompt('New subject name') || '').trim();
-                if (name) setSubject(name);
-                else e.target.value = subject || '';
-              } else {
-                setSubject(v);
-              }
-            }}
+            onChange={(e)=>setSubject(e.target.value)}
+            aria-label="Select subject"
           >
             <option value="">Select subject</option>
-            {suggestedSubjects.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-            <option value="__new__">＋ New subject…</option>
+            {subjectsList.map(s => <option key={s} value={s}>{s}</option>)}
+            {subject && !subjectsList.includes(subject) && <option value={subject}>{subject}</option>}
           </select>
         </label>
-        <label className="field">
-          <span className="label">Priority</span>
-          <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            {priorities.map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
-          </select>
+        <label className="af-field">
+          <span className="af-label">Priority</span>
+          <div className="seg-group">
+            {priorities.map(p => (
+              <button key={p} type="button" className={`seg-btn ${priority===p?'seg-active':''}`} onClick={()=>setPriority(p)}>{p[0].toUpperCase()+p.slice(1)}</button>
+            ))}
+          </div>
         </label>
       </div>
 
-      <div className="form-section">
-        <div className="section-title">Schedule</div>
-        <div className="schedule-grid">
-          <div className="col">
-            <label className="field">
-              <span className="label">Due date</span>
+      <div className="af-section">
+        <div className="af-title">Schedule</div>
+        <div className="af-grid">
+          <div className="af-col">
+            <label className="af-field">
+              <span className="af-label">Due date</span>
               <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
             </label>
-            <label className="field">
-              <span className="label">Repeat</span>
-              <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
-                {repeatOptions.map(r => <option key={r} value={r}>{r[0].toUpperCase()+r.slice(1)}</option>)}
+            <label className="af-field">
+              <span className="af-label">Repeat</span>
+              <select className="input" value={repeat} onChange={(e)=>setRepeat(e.target.value)} aria-label="Repeat">
+                <option value="none">None</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
               </select>
             </label>
           </div>
-          <div className="col">
-            <label className="field">
-              <span className="label">Estimate (min)</span>
-              <div className="chip-group">
+          <div className="af-col">
+            <label className="af-field">
+              <span className="af-label">Estimate (min)</span>
+              <div className="chip-group" style={{ marginBottom: 6 }}>
                 {quickDurations.map(m => (
-                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(estimatedMinutes)===m?'active':''}`} title={`${m} minutes`} onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
+                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(estimatedMinutes)===m?'active':''}`} onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
                 ))}
               </div>
-              <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} placeholder="60" />
+              <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e)=>setEstimatedMinutes(e.target.value)} placeholder="60" />
             </label>
-            <label className="field">
-              <span className="label">Reminder (min before)</span>
-              <div className="chip-group">
+            <label className="af-field">
+              <span className="af-label">Reminder (min before)</span>
+              <div className="chip-group" style={{ marginBottom: 6 }}>
                 {reminderQuick.map(m => (
-                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(reminderMinutes)===m?'active':''}`} title={`${m} minutes before`} onClick={()=>setReminderMinutes(m)}>{m}m</button>
+                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(reminderMinutes)===m?'active':''}`} onClick={()=>setReminderMinutes(m)}>{m}m</button>
                 ))}
               </div>
-              <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e) => setReminderMinutes(e.target.value)} placeholder="10" />
+              <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e)=>setReminderMinutes(e.target.value)} placeholder="10" />
             </label>
           </div>
         </div>
       </div>
 
-      <div className="form-section">
-        <div className="section-title">Subtasks</div>
-        <div className="subtask-editor">
-          {subtasks.map((s, idx) => (
-            <div key={s.id} className="subtask-row">
-              <input className="input" value={s.text} onChange={(e)=>updateSubtaskText(s.id, e.target.value)} placeholder={`Step ${idx+1}`} />
-              <button type="button" className="btn btn-ghost" title="Remove subtask" onClick={()=>removeSubtask(s.id)}>Remove</button>
-            </div>
-          ))}
-          <button type="button" className="btn btn-ghost" title="Add subtask" onClick={addSubtask}>＋ Add subtask</button>
-        </div>
-      </div>
-
-      <div className="form-section">
-        <div className="section-title">Notes</div>
-        <label className="field wide">
-          <span className="label">Description</span>
-          <textarea className="input" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details, links, or requirements" />
+      <div className="af-section">
+        <div className="af-title">Notes</div>
+        <label className="af-field">
+          <span className="af-label">Description</span>
+          <textarea className="input" rows={4} placeholder="Add details, links, or requirements" value={notes} onChange={(e)=>setNotes(e.target.value)} />
         </label>
       </div>
 
-      <div className="form-actions" style={{ flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-ghost" onClick={onCancel} title="Cancel changes">Cancel</button>
-        <button type="submit" className="btn" title="Save assignment">Save assignment</button>
+      <div className="af-actions">
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="btn">Save assignment</button>
       </div>
     </form>
   );
@@ -1167,7 +1139,7 @@ export default function HomeworkApp() {
         <div className="modal" onClick={cancelForm}>
           <div className="panel modal-panel slide-down" onClick={(e)=>e.stopPropagation()}>
             <div className="panel-title">{editingTask ? 'Edit assignment' : 'New assignment'}</div>
-            <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} subjectsList={subjects} />
+            <AssignmentForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} subjectsList={subjects} />
           </div>
         </div>
       )}

@@ -436,3 +436,19 @@ body {
 @media (max-width: 900px) {
   .canvas-stage { padding: 8px; }
 }
+
+/* New Assignment Form */
+.af-form { display: grid; gap: 16px; padding: 8px; }
+.af-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 12px; box-shadow: var(--shadow-sm); }
+.af-title { font-weight: 700; font-size: 13px; color: var(--text-dim); }
+.af-field { display: grid; gap: 6px; }
+.af-label { font-size: 12px; color: var(--text-dim); }
+.af-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.af-col { display: grid; gap: 12px; }
+.seg-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.seg-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; cursor: pointer; }
+.seg-active { box-shadow: 0 0 0 2px rgba(37,99,235,0.35) inset; border-color: var(--accent); }
+.af-actions { display: flex; gap: 12px; justify-content: flex-end; }
+@media (max-width: 900px) {
+  .af-grid { grid-template-columns: 1fr; }
+}

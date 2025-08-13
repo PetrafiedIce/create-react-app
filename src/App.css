@@ -153,3 +153,61 @@ body {
 @media (min-width: 901px) and (max-width: 1200px) {
   .calendar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* --- Insane UI Upgrades --- */
+:root {
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 6px 14px rgba(2,6,23,0.12);
+  --shadow-lg: 0 20px 40px rgba(2,6,23,0.18);
+}
+
+.btn { position: relative; transition: transform 0.08s ease, box-shadow 0.2s ease, filter 0.2s ease; box-shadow: var(--shadow-sm); }
+.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:active { transform: translateY(0); box-shadow: var(--shadow-sm); }
+.btn-primary { background: linear-gradient(180deg, rgba(37,99,235,0.18), rgba(37,99,235,0.12)); border-color: rgba(37,99,235,0.6); }
+.btn-outline { background: transparent; border-color: var(--border); }
+
+.input { transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.input:focus { outline: none; border-color: rgba(37,99,235,0.6); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+
+.card { transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease; box-shadow: var(--shadow-sm); }
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); background: linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.35)); }
+
+/* Hero section */
+.hero { margin: 10px 18px 14px; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border);
+  background: radial-gradient(900px 400px at 0% 0%, rgba(37,99,235,0.10), transparent),
+              radial-gradient(700px 400px at 100% 0%, rgba(124,58,237,0.10), transparent),
+              linear-gradient(180deg, var(--surface), var(--surface-2));
+}
+.hero-inner { display: grid; gap: 14px; padding: 18px; align-items: center; grid-template-columns: 1.2fr 1fr; }
+.hero-title { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.2px; color: var(--text); }
+.hero-subtitle { margin: 0; font-size: 13px; color: var(--text-dim); }
+
+.stat-cards { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stat-card { display: grid; gap: 8px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.stat-top { display: flex; align-items: center; gap: 8px; }
+.stat-icon { width: 22px; height: 22px; display: inline-grid; place-items: center; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.5); }
+.stat-kpi { font-size: 22px; font-weight: 800; color: var(--text); }
+.stat-label { font-size: 11px; color: var(--text-dim); }
+
+/* Tabs refinement */
+.tabs { position: sticky; top: 48px; z-index: 8; }
+.tab { border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.5); }
+.tab-active { background: linear-gradient(180deg, rgba(37,99,235,0.10), rgba(124,58,237,0.10)); border-color: rgba(37,99,235,0.35); }
+
+/* Subject chip with dynamic color (style applied inline) */
+.subject-chip { border-width: 1px; border-style: solid; }
+
+/* Column titles */
+.column-title { font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-dim); }
+
+/* Calendar weekday header */
+.weekday-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 0 18px 6px; }
+.weekday { text-align: center; font-size: 12px; color: var(--text-dim); }
+
+@media (max-width: 900px) {
+  .hero-inner { grid-template-columns: 1fr; }
+  .stat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

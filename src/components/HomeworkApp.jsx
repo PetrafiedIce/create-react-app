@@ -628,17 +628,53 @@ export default function HomeworkApp() {
     return () => clearInterval(id);
   }, [autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, syncFromCanvasApi, syncFromIcsUrl]);
 
+  const subjectColors = useMemo(() => {
+    // deterministic color assignment per subject
+    const colors = ['#2563eb','#7c3aed','#16a34a','#f59e0b','#ef4444','#06b6d4','#a855f7'];
+    const map = new Map();
+    tasks.forEach(t => {
+      if (!t.subject) return;
+      if (!map.has(t.subject)) {
+        const idx = (t.subject.split('').reduce((a,c)=>a+c.charCodeAt(0),0)) % colors.length;
+        map.set(t.subject, colors[idx]);
+      }
+    });
+    return map;
+  }, [tasks]);
+
   return (
     <div className="hw-app">
       <header className="hw-header">
         <div className="hw-title">School Homework Planner <span className="badge">School-friendly</span></div>
-        <div className="hw-stats">
-          <div className="stat"><span className="stat-num">{stats.overdue}</span><span className="stat-label">Overdue</span></div>
-          <div className="stat"><span className="stat-num">{stats.today}</span><span className="stat-label">Due today</span></div>
-          <div className="stat"><span className="stat-num">{stats.done}</span><span className="stat-label">Completed</span></div>
-          <div className="stat"><span className="stat-num">{stats.total}</span><span className="stat-label">Total</span></div>
-        </div>
+        <div className="hw-stats" style={{ display: 'none' }}></div>
       </header>
+
+      <section className="hero">
+        <div className="hero-inner">
+          <div>
+            <h1 className="hero-title">Plan smarter. Learn better.</h1>
+            <p className="hero-subtitle">Clean, school-safe planner with calendar, subtasks, exports, and Canvas import.</p>
+          </div>
+          <div className="stat-cards">
+            <div className="stat-card">
+              <div className="stat-top"><span className="stat-icon">⏰</span><span className="stat-label">Overdue</span></div>
+              <div className="stat-kpi">{stats.overdue}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-top"><span className="stat-icon">📅</span><span className="stat-label">Due today</span></div>
+              <div className="stat-kpi">{stats.today}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-top"><span className="stat-icon">✅</span><span className="stat-label">Completed</span></div>
+              <div className="stat-kpi">{stats.done}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-top"><span className="stat-icon">📚</span><span className="stat-label">Total</span></div>
+              <div className="stat-kpi">{stats.total}</div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="tabs">
         <button className={`tab ${activeTab==='planner' ? 'tab-active' : ''}`} onClick={() => setActiveTab('planner')}>Planner</button>
@@ -648,14 +684,14 @@ export default function HomeworkApp() {
 
       <div className="toolbar">
         <div className="left">
-          <button className="btn" onClick={beginAdd}>+ Add task</button>
-          <label className="btn btn-ghost file-label">
+          <button className="btn btn-primary" onClick={beginAdd}>+ Add task</button>
+          <label className="btn btn-outline file-label">
             Import
             <input type="file" accept="application/json" onChange={importJson} />
           </label>
-          <button className="btn btn-ghost" onClick={exportJson}>Export JSON</button>
-          <button className="btn btn-ghost" onClick={exportCsv}>Export CSV</button>
-          <button className="btn btn-ghost" onClick={() => setShowInfo(s => !s)}>{showInfo ? 'Hide info' : 'For Schools & Privacy'}</button>
+          <button className="btn btn-outline" onClick={exportJson}>Export JSON</button>
+          <button className="btn btn-outline" onClick={exportCsv}>Export CSV</button>
+          <button className="btn btn-outline" onClick={() => setShowInfo(s => !s)}>{showInfo ? 'Hide info' : 'For Schools & Privacy'}</button>
         </div>
         <div className="filters">
           <input className="input search" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -787,6 +823,9 @@ export default function HomeworkApp() {
             <div className="calendar-title">{calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</div>
             <button className="btn btn-ghost" onClick={() => setCalendarMonth(d => new Date(d.getFullYear(), d.getMonth()+1, 1))}>Next</button>
           </div>
+          <div className="weekday-grid">
+            {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="weekday">{d}</div>)}
+          </div>
           <div className="calendar-grid">
             {monthDays.map((d) => {
               const key = d.toDateString();
@@ -822,7 +861,7 @@ export default function HomeworkApp() {
               <div className="list">
                 {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
                 {grouped.overdue.map(t => (
-                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
                 ))}
               </div>
             </section>
@@ -831,7 +870,7 @@ export default function HomeworkApp() {
               <div className="list">
                 {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
                 {grouped.today.map(t => (
-                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
                 ))}
               </div>
             </section>
@@ -840,7 +879,7 @@ export default function HomeworkApp() {
               <div className="list">
                 {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
                 {grouped.upcoming.map(t => (
-                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
                 ))}
               </div>
             </section>
@@ -849,7 +888,7 @@ export default function HomeworkApp() {
               <div className="list">
                 {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
                 {grouped.done.map(t => (
-                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
                 ))}
               </div>
             </section>
@@ -864,7 +903,7 @@ export default function HomeworkApp() {
   );
 }
 
-function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart }) {
+function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, subjectColors }) {
   const dueDescriptor = formatDueDescriptor(task.dueAt);
   const dueDate = task.dueAt ? new Date(task.dueAt) : null;
   const dueDateStr = dueDate ? dueDate.toLocaleString() : 'No date';
@@ -878,7 +917,16 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart }) {
           <div className="title-area">
             <div className="title">{task.title}</div>
             <div className="meta">
-              {task.subject && <span className="chip chip-muted">{task.subject}</span>}
+              {task.subject && (
+                <span
+                  className="chip subject-chip"
+                  style={{
+                    borderColor: '#e2e8f0',
+                    background: `${(task.subject || '').length ? 'rgba(37,99,235,0.06)' : 'rgba(255,255,255,0.02)'}`,
+                    color: subjectColors.get(task.subject) ? subjectColors.get(task.subject) : 'var(--text-dim)'
+                  }}
+                >{task.subject}</span>
+              )}
               <PriorityChip priority={task.priority} />
               <StatusBadge status={task.status} />
             </div>
@@ -902,9 +950,9 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart }) {
       </div>
       <div className="card-actions">
         {task.status !== 'done' && task.status !== 'in_progress' && (
-          <button className="btn btn-ghost" onClick={onStart}>Start</button>
+          <button className="btn btn-outline" onClick={onStart}>Start</button>
         )}
-        <button className="btn btn-ghost" onClick={onEdit}>Edit</button>
+        <button className="btn btn-outline" onClick={onEdit}>Edit</button>
         <button className="btn btn-danger" onClick={onDelete}>Delete</button>
       </div>
     </div>

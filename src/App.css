@@ -245,3 +245,7 @@ body {
   .hero-inner { grid-template-columns: 1fr; }
   .stat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Settings modal */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 30px 16px; z-index: 40; }
+.modal-panel { width: min(920px, 96vw); }

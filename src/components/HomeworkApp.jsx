@@ -266,6 +266,27 @@ export default function HomeworkApp() {
   const [lastSyncStatus, setLastSyncStatus] = useState('');
   const [darkMode, setDarkMode] = useState(Boolean(initialSettings.darkMode));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Motivational messages
+  const messages = [
+    'Small steps lead to big wins.',
+    'Focus for 25 minutes. You got this!',
+    'Done is better than perfect.',
+    'Start now; future you will thank you.',
+    'Progress, not perfection.',
+  ];
+  const [messageIdx, setMessageIdx] = useState(() => Math.floor(Math.random() * messages.length));
+  useEffect(() => {
+    const id = setInterval(() => setMessageIdx(i => (i + 1) % messages.length), 8000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Ensure view follows activeTab
+  useEffect(() => { if (activeTab === 'calendar') setView('calendar'); else setView('board'); }, [activeTab, setView]);
+
+  // Close menus on route/tab change
+  useEffect(() => { setMenuOpen(false); }, [activeTab]);
 
   useEffect(() => {
     saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode });
@@ -645,20 +666,20 @@ export default function HomeworkApp() {
   }, [tasks]);
 
   return (
-    <div className="hw-app">
-      <header className="hw-header">
-        <div className="hw-title">School Planner</div>
+    <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
+      <header className="hw-header" onClick={(e) => e.stopPropagation()}>
+        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>School Planner</div>
         <div className="center">
           <input className="input search" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="right">
           <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" onClick={() => setActiveTab('planner')}>📋</button>
-          <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" onClick={() => { setActiveTab('calendar'); setView('calendar'); }}>📆</button>
+          <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" onClick={() => setActiveTab('calendar')}>📆</button>
           <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
           <button className="icon-btn" title="Add task" onClick={beginAdd}>＋</button>
-          <button className="icon-btn" title="More" onClick={() => setMenuOpen(o => !o)}>⋯</button>
+          <button className="icon-btn" title="More" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
-            <div className="dropdown slide-down">
+            <div className="dropdown slide-down" onClick={(e) => e.stopPropagation()}>
               <div className="item" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</div>
               <div className="item" onClick={() => { setMenuOpen(false); exportCsv(); }}>Export CSV</div>
               <hr />
@@ -666,18 +687,17 @@ export default function HomeworkApp() {
                 <span>Import JSON</span>
                 <input type="file" accept="application/json" onChange={(e) => { setMenuOpen(false); importJson(e); }} />
               </label>
-              <div className="item" onClick={() => { setMenuOpen(false); setActiveTab('settings'); }}>Settings</div>
+              <div className="item" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</div>
             </div>
           )}
         </div>
       </header>
 
-      {/* Slim hero just with stats, minimal copy */}
-      <section className="hero fade-in">
+      <section className="hero fade-in" onClick={() => setMenuOpen(false)}>
         <div className="hero-inner">
           <div>
-            <h1 className="hero-title">Your day at a glance</h1>
-            <p className="hero-subtitle">Focus on what matters, with fewer clicks.</p>
+            <h1 className="hero-title">{messages[messageIdx]}</h1>
+            <p className="hero-subtitle">Stay consistent. The habits make the grade.</p>
           </div>
           <div className="stat-cards">
             <div className="stat-card">
@@ -714,14 +734,14 @@ export default function HomeworkApp() {
       )}
 
       {(isAdding || editingTask) && (
-        <div className="panel slide-down">
+        <div className="panel slide-down" onClick={() => setMenuOpen(false)}>
           <div className="panel-title">{editingTask ? 'Edit task' : 'New task'}</div>
           <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} />
         </div>
       )}
 
       {activeTab === 'calendar' ? (
-        <div className="calendar fade-in">
+        <div className="calendar fade-in" onClick={() => setMenuOpen(false)}>
           <div className="calendar-header">
             <button className="btn btn-ghost" onClick={() => setCalendarMonth(d => new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
             <div className="calendar-title">{calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</div>
@@ -748,7 +768,7 @@ export default function HomeworkApp() {
           </div>
         </div>
       ) : (
-        <main className="board fade-in">
+        <main className="board fade-in" onClick={() => setMenuOpen(false)}>
           <section className="column">
             <div className="column-title">Overdue</div>
             <div className="list">
@@ -786,6 +806,99 @@ export default function HomeworkApp() {
             </div>
           </section>
         </main>
+      )}
+
+      {settingsOpen && (
+        <div className="modal" onClick={() => setSettingsOpen(false)}>
+          <div className="panel modal-panel slide-down" onClick={(e) => e.stopPropagation()}>
+            <div className="panel-title">Settings</div>
+            <div className="settings-grid">
+              <label className="field">
+                <span className="label">Theme</span>
+                <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Primary color</span>
+                <select className="input" onChange={(e) => {
+                  const color = e.target.value; const root = document.documentElement;
+                  if (color === 'blue') root.style.setProperty('--accent', '#2563eb');
+                  if (color === 'violet') root.style.setProperty('--accent', '#7c3aed');
+                  if (color === 'green') root.style.setProperty('--accent', '#16a34a');
+                }}>
+                  <option value="blue">Blue</option>
+                  <option value="violet">Violet</option>
+                  <option value="green">Green</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Density</span>
+                <select className="input" onChange={(e) => {
+                  const density = e.target.value; const root = document.documentElement;
+                  if (density === 'comfortable') root.style.setProperty('--border', '#e2e8f0');
+                  if (density === 'compact') root.style.setProperty('--border', '#cbd5e1');
+                }}>
+                  <option value="comfortable">Comfortable</option>
+                  <option value="compact">Compact</option>
+                </select>
+              </label>
+              <label className="field wide">
+                <span className="label">Import assignments from an ICS file (Canvas)</span>
+                <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
+                  const count = importIcsText(text, 'Canvas'); e.target.value = ''; alert(`Imported ${count} assignment(s).`);
+                }} />
+              </label>
+              <label className="field wide">
+                <span className="label">ICS feed URL</span>
+                <input className="input" placeholder="https://yourcanvas.example.edu/feeds/...user.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
+                <div className="settings-actions">
+                  <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
+                  <span className="settings-note">May be blocked by CORS. If blocked, download and import file above.</span>
+                </div>
+              </label>
+              <label className="field">
+                <span className="label">Canvas base URL</span>
+                <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
+              </label>
+              <label className="field">
+                <span className="label">Access token</span>
+                <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
+              </label>
+              <div className="settings-actions">
+                <button className="btn" onClick={syncFromCanvasApi}>Sync via API</button>
+                <span className="settings-note">Direct connection to Canvas. Nothing leaves your browser.</span>
+              </div>
+              <label className="field">
+                <span className="label">Auto-sync</span>
+                <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Source</span>
+                <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
+                  <option value="ics">ICS URL</option>
+                  <option value="api">Canvas API</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Interval (minutes)</span>
+                <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
+              </label>
+              <div className="field wide">
+                <span className="label">Last sync</span>
+                <div className="settings-note">{lastSyncStatus || '—'}</div>
+              </div>
+              <div className="settings-actions">
+                <button className="btn btn-ghost" onClick={() => setSettingsOpen(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <footer className="hw-footer">

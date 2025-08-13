@@ -1,9 +1,9 @@
 import React from 'react';
 import './App.css';
-import SandwichClickerGame from './components/SandwichClickerGame';
+import HomeworkApp from './components/HomeworkApp';
 
 function App() {
-  return <SandwichClickerGame />;
+  return <HomeworkApp />;
 }
 
 export default App;

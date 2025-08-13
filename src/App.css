@@ -387,3 +387,7 @@ body {
 /* Ensure overlay positioning */
 .notes-layout-left { position: relative; }
 .notes-left-toggle { position: absolute; left: 8px; top: 12px; z-index: 7; }
+
+/* Overlay that does not scale */
+.canvas-overlay { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.canvas-overlay .quick-menu { pointer-events: auto; }

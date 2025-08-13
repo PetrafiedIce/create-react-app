@@ -924,6 +924,44 @@ export default function HomeworkApp() {
     setCanvasItems(prev => [...prev, { id: generateId(), type: 'line', x: 60, y: 60, w: 220, h: 2, stroke }]);
   };
 
+  const [overlayQuick, setOverlayQuick] = useState({ open: false, x: 0, y: 0 });
+  const [connections, setConnections] = useState([]); // {id, fromId, toId}
+  const [drawingConn, setDrawingConn] = useState(null); // {fromId, x, y}
+
+  const openQuickAt = (clientX, clientY) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setOverlayQuick({ open: true, x: clientX - rect.left, y: clientY - rect.top });
+  };
+
+  const startConnection = (fromId, e) => {
+    e.stopPropagation();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    setDrawingConn({ fromId, x: e.clientX - rect.left, y: e.clientY - rect.top });
+    window.addEventListener('pointermove', onConnMove);
+    window.addEventListener('pointerup', onConnEnd, { once: true });
+  };
+  const onConnMove = (e) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    setDrawingConn(dc => (dc ? { ...dc, x: e.clientX - rect.left, y: e.clientY - rect.top } : null));
+  };
+  const onConnEnd = (e) => {
+    window.removeEventListener('pointermove', onConnMove);
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+    // Hit-test items (simple bounding box)
+    const hit = canvasItems.find(it => x >= it.x && x <= it.x + it.w && y >= it.y && y <= it.y + it.h);
+    if (hit && drawingConn?.fromId && hit.id !== drawingConn.fromId) {
+      setConnections(prev => [...prev, { id: generateId(), fromId: drawingConn.fromId, toId: hit.id }]);
+    }
+    setDrawingConn(null);
+  };
+
+  const getItemCenter = (id) => {
+    const it = canvasItems.find(i => i.id === id); if (!it) return { x: 0, y: 0 };
+    return { x: it.x + it.w/2, y: it.y + it.h/2 };
+  };
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -1082,10 +1120,33 @@ export default function HomeworkApp() {
               <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
               <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
             </div>
-            <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
-            <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') handleCanvasClick(e); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
+            <div className="canvas-overlay">
               {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
               {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
+              <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
+              {overlayQuick.open && selectedNoteId && tool==='select' && (
+                <div className="quick-menu" style={{ left: overlayQuick.x, top: overlayQuick.y }} onClick={(e)=>e.stopPropagation()}>
+                  <div className="quick-item" onClick={() => { addTextItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add text</div>
+                  <div className="quick-item" onClick={() => { addShapeItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add rectangle</div>
+                  <div className="quick-item" onClick={() => { addEllipseItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add ellipse</div>
+                  <div className="quick-item" onClick={() => { addLineItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add line</div>
+                  <div className="quick-item" onClick={() => { triggerImageTool(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Import image</div>
+                </div>
+              )}
+              {/* Render connections in overlay space */}
+              {connections.map(c => {
+                const a = getItemCenter(c.fromId); const b = getItemCenter(c.toId);
+                return <svg key={c.id} style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(37,99,235,0.9)" strokeWidth="2" />
+                </svg>;
+              })}
+              {drawingConn && (
+                <svg style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+                  <line x1={getItemCenter(drawingConn.fromId).x} y1={getItemCenter(drawingConn.fromId).y} x2={drawingConn.x} y2={drawingConn.y} stroke="rgba(37,99,235,0.6)" strokeDasharray="6 4" strokeWidth="2" />
+                </svg>
+              )}
+            </div>
+            <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') openQuickAt(e.clientX, e.clientY); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
               {canvasItems.map(it => (
                 <div key={it.id}
                   className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
@@ -1093,12 +1154,15 @@ export default function HomeworkApp() {
                   onPointerDown={(e) => onPointerDown(e, it.id, 'move')}
                 >
                   {it.type === 'text' ? (
-                    <textarea
-                      className="canvas-text"
-                      value={it.text}
-                      onChange={(e) => updateText(it.id, e.target.value)}
-                      style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
-                    />
+                    <>
+                      <textarea
+                        className="canvas-text"
+                        value={it.text}
+                        onChange={(e) => updateText(it.id, e.target.value)}
+                        style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
+                      />
+                      <button className="btn btn-ghost" style={{ position: 'absolute', right: -36, top: '50%', transform: 'translateY(-50%)' }} onPointerDown={(e)=>startConnection(it.id, e)}>→</button>
+                    </>
                   ) : it.type === 'image' ? (
                     <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
                   ) : it.type === 'ellipse' ? (
@@ -1109,19 +1173,9 @@ export default function HomeworkApp() {
                     <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
                   )}
                   <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
-                  <button className="btn btn-ghost" style={{ position: 'absolute', top: -34, right: 0 }} onClick={(e) => { e.stopPropagation(); removeItem(it.id); }}>Remove</button>
                 </div>
               ))}
               {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />}
-              {quickMenu.open && selectedNoteId && tool==='select' && (
-                <div className="quick-menu" style={{ left: quickMenu.x, top: quickMenu.y }} onClick={(e)=>e.stopPropagation()}>
-                  <div className="quick-item" onClick={() => { addTextItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add text</div>
-                  <div className="quick-item" onClick={() => { addShapeItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add rectangle</div>
-                  <div className="quick-item" onClick={() => { addEllipseItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add ellipse</div>
-                  <div className="quick-item" onClick={() => { addLineItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add line</div>
-                  <div className="quick-item" onClick={() => { triggerImageTool(); setQuickMenu({ open:false, x:0, y:0 }); }}>Import image</div>
-                </div>
-              )}
             </div>
           </div>
         </div>

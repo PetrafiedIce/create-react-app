@@ -84,6 +84,9 @@ function defaultNewTask() {
     estimatedMinutes: 60,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
+    subtasks: [],
+    repeat: 'none',
+    reminderMinutesBefore: 0,
   };
 }
 
@@ -105,6 +108,10 @@ function TaskForm({ initialTask, onSave, onCancel }) {
   const [status, setStatus] = useState(initialTask.status ?? 'todo');
   const [dueAt, setDueAt] = useState(toLocalInputValue(initialTask.dueAt));
   const [estimatedMinutes, setEstimatedMinutes] = useState(initialTask.estimatedMinutes ?? 60);
+  const [subtasks, setSubtasks] = useState(initialTask.subtasks ?? []);
+  const [newSubtask, setNewSubtask] = useState('');
+  const [repeat, setRepeat] = useState(initialTask.repeat ?? 'none');
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState(initialTask.reminderMinutesBefore ?? 0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -120,7 +127,23 @@ function TaskForm({ initialTask, onSave, onCancel }) {
       dueAt: fromLocalInputValue(dueAt),
       estimatedMinutes: Number(estimatedMinutes) || 0,
       updatedAt: new Date().toISOString(),
+      subtasks,
+      repeat,
+      reminderMinutesBefore: Number(reminderMinutesBefore) || 0,
     });
+  };
+
+  const addSubtask = () => {
+    const text = newSubtask.trim();
+    if (!text) return;
+    setSubtasks(prev => [...prev, { id: generateId(), text, done: false }]);
+    setNewSubtask('');
+  };
+  const toggleSubtask = (id) => {
+    setSubtasks(prev => prev.map(s => s.id === id ? { ...s, done: !s.done } : s));
+  };
+  const removeSubtask = (id) => {
+    setSubtasks(prev => prev.filter(s => s.id !== id));
   };
 
   return (
@@ -163,6 +186,40 @@ function TaskForm({ initialTask, onSave, onCancel }) {
         <span className="label">Notes</span>
         <textarea className="input" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details, links, or requirements" />
       </label>
+
+      <div className="panel" style={{ marginTop: 10 }}>
+        <div className="panel-title">Subtasks</div>
+        <div className="subtasks">
+          {subtasks.map(s => (
+            <div className="subtask" key={s.id}>
+              <input type="checkbox" checked={s.done} onChange={() => toggleSubtask(s.id)} />
+              <span style={{ textDecoration: s.done ? 'line-through' : 'none' }}>{s.text}</span>
+              <button type="button" className="btn btn-ghost" onClick={() => removeSubtask(s.id)}>Remove</button>
+            </div>
+          ))}
+          <div className="subtask">
+            <input className="input" placeholder="New subtask" value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} />
+            <button type="button" className="btn" onClick={addSubtask}>Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="form-grid" style={{ marginTop: 10 }}>
+        <label className="field">
+          <span className="label">Repeat</span>
+          <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
+            <option value="none">None</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </label>
+        <label className="field">
+          <span className="label">Reminder (min before)</span>
+          <input className="input" type="number" min="0" step="5" value={reminderMinutesBefore} onChange={(e) => setReminderMinutesBefore(e.target.value)} />
+        </label>
+      </div>
+
       <div className="form-actions">
         <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn">Save task</button>
@@ -180,9 +237,54 @@ export default function HomeworkApp() {
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [sortBy, setSortBy] = useState('due');
   const [showInfo, setShowInfo] = useState(false);
+  const [view, setView] = useState('board'); // board | calendar
+  const [timerMinutes, setTimerMinutes] = useState(25);
+  const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
+  const [timerRunning, setTimerRunning] = useState(false);
+
+  useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
+  useEffect(() => {
+    if (!timerRunning) return;
+    const id = setInterval(() => setTimeLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [timerRunning]);
+  useEffect(() => { if (timeLeft === 0 && timerRunning) setTimerRunning(false); }, [timeLeft, timerRunning]);
 
   useEffect(() => {
     saveTasks(tasks);
+  }, [tasks]);
+
+  // CSV export
+  const exportCsv = () => {
+    const headers = ['Title','Subject','Notes','Priority','Status','DueAt','EstimateMin'];
+    const rows = tasks.map(t => [t.title, t.subject, t.notes.replace(/\n/g,' '), t.priority, t.status, t.dueAt || '', t.estimatedMinutes]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'homework_tasks.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  // Handle repeat when marking done
+  const scheduleNextIfRepeating = (task) => {
+    if (!task.dueAt) return null;
+    const due = new Date(task.dueAt);
+    const next = new Date(due);
+    if (task.repeat === 'daily') next.setDate(due.getDate() + 1);
+    else if (task.repeat === 'weekly') next.setDate(due.getDate() + 7);
+    else if (task.repeat === 'monthly') next.setMonth(due.getMonth() + 1);
+    else return null;
+    return { ...task, id: generateId(), status: 'todo', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), dueAt: next.toISOString() };
+  };
+
+  // Reminder banner (simple, local time check at load)
+  const upcomingSoon = useMemo(() => {
+    const now = new Date();
+    return tasks.filter(t => t.reminderMinutesBefore > 0 && t.dueAt && parseDate(t.dueAt)).filter(t => {
+      const due = new Date(t.dueAt);
+      const remindAt = new Date(due.getTime() - t.reminderMinutesBefore * 60000);
+      return remindAt > now && (remindAt.getTime() - now.getTime()) < 60 * 60 * 1000; // within next hour
+    }).slice(0, 3);
   }, [tasks]);
 
   const subjects = useMemo(() => {
@@ -294,10 +396,18 @@ export default function HomeworkApp() {
   };
 
   const toggleDone = (id, done) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id !== id) return t;
-      return { ...t, status: done ? 'done' : 'todo', updatedAt: new Date().toISOString() };
-    }));
+    setTasks(prev => {
+      const updated = prev.map(t => {
+        if (t.id !== id) return t;
+        return { ...t, status: done ? 'done' : 'todo', updatedAt: new Date().toISOString() };
+      });
+      if (done) {
+        const finished = updated.find(t => t.id === id);
+        const next = finished ? scheduleNextIfRepeating(finished) : null;
+        return next ? [next, ...updated] : updated;
+      }
+      return updated;
+    });
   };
 
   const setInProgress = (id) => {
@@ -333,6 +443,9 @@ export default function HomeworkApp() {
         estimatedMinutes: Number(t.estimatedMinutes) || 0,
         createdAt: t.createdAt && parseDate(t.createdAt) ? new Date(t.createdAt).toISOString() : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        subtasks: Array.isArray(t.subtasks) ? t.subtasks.map((s) => ({ id: s.id || generateId(), text: String(s.text || ''), done: Boolean(s.done) })) : [],
+        repeat: ['none', 'daily', 'weekly', 'monthly'].includes(t.repeat) ? t.repeat : 'none',
+        reminderMinutesBefore: Number(t.reminderMinutesBefore) || 0,
       }));
       setTasks(sanitized);
     } catch (e) {
@@ -343,6 +456,31 @@ export default function HomeworkApp() {
   };
 
   const editingTask = useMemo(() => tasks.find(t => t.id === editingId) || null, [tasks, editingId]);
+
+  // Calendar helpers
+  const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
+  const endOfMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+  const monthDays = useMemo(() => {
+    const start = startOfMonth(calendarMonth);
+    const end = endOfMonth(calendarMonth);
+    const days = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d));
+    }
+    return days;
+  }, [calendarMonth]);
+
+  const tasksByDay = useMemo(() => {
+    const map = new Map();
+    monthDays.forEach(d => map.set(d.toDateString(), []));
+    tasks.forEach(t => {
+      if (!t.dueAt) return;
+      const key = new Date(t.dueAt).toDateString();
+      if (map.has(key)) map.get(key).push(t);
+    });
+    return map;
+  }, [monthDays, tasks]);
 
   return (
     <div className="hw-app">
@@ -363,7 +501,8 @@ export default function HomeworkApp() {
             Import
             <input type="file" accept="application/json" onChange={importJson} />
           </label>
-          <button className="btn btn-ghost" onClick={exportJson}>Export</button>
+          <button className="btn btn-ghost" onClick={exportJson}>Export JSON</button>
+          <button className="btn btn-ghost" onClick={exportCsv}>Export CSV</button>
           <button className="btn btn-ghost" onClick={() => setShowInfo(s => !s)}>{showInfo ? 'Hide info' : 'For Schools & Privacy'}</button>
         </div>
         <div className="filters">
@@ -384,6 +523,10 @@ export default function HomeworkApp() {
             <option value="status">Sort: Status</option>
             <option value="updated">Sort: Updated</option>
           </select>
+          <select className="input" value={view} onChange={(e) => setView(e.target.value)}>
+            <option value="board">View: Board</option>
+            <option value="calendar">View: Calendar</option>
+          </select>
         </div>
       </div>
 
@@ -393,10 +536,14 @@ export default function HomeworkApp() {
           <ul style={{ margin: '0 0 0 16px', padding: 0 }}>
             <li>No accounts or logins; works offline in the browser.</li>
             <li>No ads, no tracking, and no third‑party analytics. All data stays on this device (local storage).</li>
-            <li>No social features or external content. Import/Export is local JSON only.</li>
+            <li>No social features or external content. Import/Export is local JSON or CSV only.</li>
             <li>Designed for classrooms: keyboard‑friendly, readable, and distraction‑free.</li>
           </ul>
         </div>
+      )}
+
+      {upcomingSoon.length > 0 && (
+        <div className="banner">Upcoming soon: {upcomingSoon.map(t => t.title).join(', ')} <button className="btn btn-ghost" onClick={() => setView('calendar')}>Open calendar</button></div>
       )}
 
       {(isAdding || editingTask) && (
@@ -406,44 +553,81 @@ export default function HomeworkApp() {
         </div>
       )}
 
-      <main className="board">
-        <section className="column">
-          <div className="column-title">Overdue</div>
-          <div className="list">
-            {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
-            {grouped.overdue.map(t => (
-              <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-            ))}
+      <div className="timer-panel">
+        <div className="panel-title">Focus timer</div>
+        <div className="timer-row">
+          <span className="timer-time">{String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}</span>
+          <input className="input" type="number" value={timerMinutes} min="1" max="120" onChange={(e) => setTimerMinutes(Number(e.target.value)||25)} />
+          <button className="btn" onClick={() => setTimerRunning(true)} disabled={timerRunning || timeLeft===0}>Start</button>
+          <button className="btn btn-ghost" onClick={() => setTimerRunning(false)} disabled={!timerRunning}>Pause</button>
+          <button className="btn btn-ghost" onClick={() => { setTimerRunning(false); setTimeLeft(timerMinutes*60); }}>Reset</button>
+        </div>
+      </div>
+
+      {view === 'calendar' ? (
+        <div className="calendar">
+          <div className="calendar-header">
+            <button className="btn btn-ghost" onClick={() => setCalendarMonth(d => new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
+            <div className="calendar-title">{calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</div>
+            <button className="btn btn-ghost" onClick={() => setCalendarMonth(d => new Date(d.getFullYear(), d.getMonth()+1, 1))}>Next</button>
           </div>
-        </section>
-        <section className="column">
-          <div className="column-title">Today</div>
-          <div className="list">
-            {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
-            {grouped.today.map(t => (
-              <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-            ))}
+          <div className="calendar-grid">
+            {monthDays.map((d) => {
+              const key = d.toDateString();
+              const dayTasks = tasksByDay.get(key) || [];
+              return (
+                <div className="calendar-cell" key={key}>
+                  <div className="calendar-date">{d.getDate()}</div>
+                  <div className="calendar-tasks">
+                    {dayTasks.map(t => (
+                      <div key={t.id} className={`cal-task ${t.status==='done' ? 'done' : ''}`}>{t.title}</div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </section>
-        <section className="column">
-          <div className="column-title">Upcoming</div>
-          <div className="list">
-            {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
-            {grouped.upcoming.map(t => (
-              <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-            ))}
-          </div>
-        </section>
-        <section className="column">
-          <div className="column-title">Completed</div>
-          <div className="list">
-            {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
-            {grouped.done.map(t => (
-              <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-            ))}
-          </div>
-        </section>
-      </main>
+        </div>
+      ) : (
+        <main className="board">
+          <section className="column">
+            <div className="column-title">Overdue</div>
+            <div className="list">
+              {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
+              {grouped.overdue.map(t => (
+                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
+            </div>
+          </section>
+          <section className="column">
+            <div className="column-title">Today</div>
+            <div className="list">
+              {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
+              {grouped.today.map(t => (
+                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
+            </div>
+          </section>
+          <section className="column">
+            <div className="column-title">Upcoming</div>
+            <div className="list">
+              {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
+              {grouped.upcoming.map(t => (
+                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
+            </div>
+          </section>
+          <section className="column">
+            <div className="column-title">Completed</div>
+            <div className="list">
+              {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
+              {grouped.done.map(t => (
+                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
+            </div>
+          </section>
+        </main>
+      )}
 
       <footer className="hw-footer">
         <div>Privacy: No accounts, no tracking; your data stays on this device. Use "For Schools & Privacy" above for details.</div>
@@ -473,6 +657,16 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart }) {
           </div>
         </div>
         {task.notes && <div className="notes">{task.notes}</div>}
+        {task.subtasks && task.subtasks.length > 0 && (
+          <div className="subtasks">
+            {task.subtasks.map(s => (
+              <div className="subtask" key={s.id}>
+                <input type="checkbox" checked={s.done} onChange={() => {}} disabled />
+                <span style={{ textDecoration: s.done ? 'line-through' : 'none' }}>{s.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="due-row">
           <span className="due-label">{dueDescriptor}</span>
           <span className="due-date">{dueDateStr}</span>

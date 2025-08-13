@@ -102,6 +102,29 @@ body {
 
 .hw-footer { padding: 12px 18px; color: var(--text-dim); font-size: 12px; border-top: 1px solid var(--border); background: linear-gradient(180deg, rgba(248,250,252,0.95), rgba(255,255,255,0.95)); }
 
+/* Calendar and Timer extensions */
+.calendar { margin: 0 18px 18px; }
+.calendar-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.calendar-title { font-weight: 600; color: var(--text-dim); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.calendar-cell { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-height: 120px; padding: 8px; display: grid; grid-template-rows: auto 1fr; }
+.calendar-date { font-size: 12px; color: var(--text-dim); text-align: right; }
+.calendar-tasks { display: grid; gap: 6px; align-content: start; }
+.cal-task { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: rgba(37,99,235,0.08); color: var(--text); border: 1px solid rgba(37,99,235,0.25); padding: 2px 6px; border-radius: 999px; }
+.cal-task.done { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); color: #065f46; }
+
+.timer-panel { margin: 0 18px 10px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 10px; }
+.timer-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.timer-time { font-size: 24px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); }
+
+.banner { margin: 0 18px 10px; padding: 12px; background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.25); color: var(--text); border-radius: 10px; font-size: 13px; }
+.banner .btn { margin-left: 8px; }
+
+.subtasks { display: grid; gap: 6px; }
+.subtask { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.subtask input[type="checkbox"] { width: 16px; height: 16px; }
+
+/* Responsive tweaks */
 @media (max-width: 1200px) {
   .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -109,4 +132,10 @@ body {
   .board { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .field:nth-child(3), .field:nth-child(4), .field:nth-child(5), .field:nth-child(6) { grid-column: span 1; }
+}
+@media (max-width: 900px) {
+  .calendar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 901px) and (max-width: 1200px) {
+  .calendar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }

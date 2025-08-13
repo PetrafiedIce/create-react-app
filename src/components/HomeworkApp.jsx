@@ -4,6 +4,7 @@ const STORAGE_KEY = 'homework_tracker_v1';
 const SETTINGS_KEY = 'homework_settings_v1';
 const IN_PROGRESS_ID_KEY = 'homework_current_task_id';
 const NOTES_KEY = 'homework_notes_v1';
+const NOTES_CANVAS_KEY_PREFIX = 'homework_note_canvas_';
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -89,6 +90,11 @@ function loadNotes() {
   try { const raw = localStorage.getItem(NOTES_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
 }
 function saveNotes(notes) { try { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); } catch {} }
+
+function loadCanvas(noteId) {
+  try { const raw = localStorage.getItem(NOTES_CANVAS_KEY_PREFIX + noteId); return raw ? JSON.parse(raw) : []; } catch { return []; }
+}
+function saveCanvas(noteId, items) { try { localStorage.setItem(NOTES_CANVAS_KEY_PREFIX + noteId, JSON.stringify(items)); } catch {} }
 
 function defaultNewTask() {
   const now = new Date();
@@ -266,6 +272,9 @@ export default function HomeworkApp() {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteBody, setNoteBody] = useState('');
+  const [selectedNoteId, setSelectedNoteId] = useState(null);
+  const [canvasItems, setCanvasItems] = useState([]);
+  const [selectedItemId, setSelectedItemId] = useState(null);
   // Canvas/Sync settings
   const initialSettings = useMemo(() => loadSettings(), []);
   const [canvasIcsUrl, setCanvasIcsUrl] = useState(initialSettings.canvasIcsUrl || '');
@@ -742,6 +751,57 @@ export default function HomeworkApp() {
   };
   const deleteNote = (id) => { if (!window.confirm('Delete this note?')) return; setNotes(prev => prev.filter(n => n.id !== id)); };
 
+  // Load canvas when selecting a note
+  useEffect(() => {
+    if (!selectedNoteId) return;
+    setCanvasItems(loadCanvas(selectedNoteId));
+  }, [selectedNoteId]);
+  useEffect(() => {
+    if (!selectedNoteId) return;
+    saveCanvas(selectedNoteId, canvasItems);
+  }, [selectedNoteId, canvasItems]);
+
+  const addTextItem = () => {
+    if (!selectedNoteId) return;
+    const id = generateId();
+    setCanvasItems(prev => [...prev, { id, type: 'text', x: 40, y: 60, w: 220, h: 80, text: 'New text' }]);
+    setSelectedItemId(id);
+  };
+  const addImageItem = async (file) => {
+    if (!selectedNoteId || !file) return;
+    const url = URL.createObjectURL(file);
+    setCanvasItems(prev => [...prev, { id: generateId(), type: 'image', x: 60, y: 80, w: 240, h: 180, src: url }]);
+  };
+  const onDrag = (id, dx, dy) => {
+    setCanvasItems(prev => prev.map(it => it.id === id ? { ...it, x: Math.max(0, it.x + dx), y: Math.max(0, it.y + dy) } : it));
+  };
+  const onResize = (id, dw, dh) => {
+    setCanvasItems(prev => prev.map(it => it.id === id ? { ...it, w: Math.max(60, it.w + dw), h: Math.max(40, it.h + dh) } : it));
+  };
+  const updateText = (id, text) => setCanvasItems(prev => prev.map(it => it.id === id ? { ...it, text } : it));
+  const removeItem = (id) => setCanvasItems(prev => prev.filter(it => it.id !== id));
+
+  // Pointer handlers for drag/resize
+  const dragState = useRef({ id: null, lastX: 0, lastY: 0, mode: 'move' });
+  const onPointerDown = (e, id, mode) => {
+    e.stopPropagation();
+    dragState.current = { id, lastX: e.clientX, lastY: e.clientY, mode };
+    setSelectedItemId(id);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  };
+  const onPointerMove = (e) => {
+    const s = dragState.current; if (!s.id) return;
+    const dx = e.clientX - s.lastX; const dy = e.clientY - s.lastY;
+    if (s.mode === 'move') onDrag(s.id, dx, dy); else onResize(s.id, dx, dy);
+    dragState.current.lastX = e.clientX; dragState.current.lastY = e.clientY;
+  };
+  const onPointerUp = () => {
+    dragState.current = { id: null, lastX: 0, lastY: 0, mode: 'move' };
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+  };
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -846,31 +906,59 @@ export default function HomeworkApp() {
           </div>
         </div>
       ) : activeTab === 'notes' ? (
-        <div className="notes-page fade-in" onClick={() => setMenuOpen(false)}>
-          <div className="panel">
-            <div className="panel-title">{editingNoteId ? 'Edit note' : 'New note'}</div>
-            <div className="task-form" style={{ display: 'grid', gap: 8 }}>
-              <input className="input" placeholder="Title" value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} />
-              <textarea className="input" rows={6} placeholder="Write your note..." value={noteBody} onChange={(e) => setNoteBody(e.target.value)} />
-              <div className="form-actions">
-                <button className="btn btn-ghost" onClick={() => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); }}>Clear</button>
-                <button className="btn" onClick={saveNote}>{editingNoteId ? 'Update note' : 'Add note'}</button>
-              </div>
+        <div className="notes-layout fade-in" onClick={() => setMenuOpen(false)}>
+          <div className="notes-canvas">
+            <div className="canvas-toolbar">
+              <button className="btn" onClick={addTextItem}>Add text</button>
+              <label className="btn btn-ghost file-label">
+                Add image
+                <input type="file" accept="image/*" onChange={(e) => { const f=e.target.files?.[0]; if (f) addImageItem(f); e.target.value=''; }} />
+              </label>
+              <span className="chip">{selectedNoteId ? 'Editing canvas' : 'Select a note →'}</span>
+            </div>
+            <div className="canvas-inner" onClick={() => setSelectedItemId(null)}>
+              {canvasItems.map(it => (
+                <div key={it.id}
+                  className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
+                  style={{ left: it.x, top: it.y, width: it.w, height: it.h }}
+                  onPointerDown={(e) => onPointerDown(e, it.id, 'move')}
+                >
+                  {it.type === 'text' ? (
+                    <textarea
+                      className="canvas-text"
+                      value={it.text}
+                      onChange={(e) => updateText(it.id, e.target.value)}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  ) : (
+                    <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                  )}
+                  <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
+                  <button className="btn btn-ghost" style={{ position: 'absolute', top: -34, right: 0 }} onClick={(e) => { e.stopPropagation(); removeItem(it.id); }}>Remove</button>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="notes-grid">
-            {notes.length === 0 && <div className="empty">No notes yet. Use the form above to add one.</div>}
-            {notes.map(n => (
-              <div key={n.id} className="note-card">
-                <div className="note-title">{n.title || 'Untitled'}</div>
-                <div className="note-body">{n.body}</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-ghost" onClick={() => editNote(n.id)}>Edit</button>
-                  <button className="btn btn-danger" onClick={() => deleteNote(n.id)}>Delete</button>
+          <aside className="notes-sidebar">
+            <div className="notes-sidebar-header">
+              <button className="btn" onClick={() => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); const nId = generateId(); const n={ id:nId, title:'New note', body:'', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }; setNotes(prev=>[n,...prev]); setSelectedNoteId(nId); }}>New</button>
+              <button className="btn btn-ghost" disabled={!selectedNoteId} onClick={() => { if (!selectedNoteId) return; const idx = notes.findIndex(n=>n.id===selectedNoteId); if (idx>=0) { const n=notes[idx]; const title = prompt('Rename note', n.title||'') ?? n.title; setNotes(prev => prev.map(x => x.id===selectedNoteId ? { ...x, title, updatedAt:new Date().toISOString() } : x)); } }}>Rename</button>
+              <button className="btn btn-danger" disabled={!selectedNoteId} onClick={() => { if (!selectedNoteId) return; if (!window.confirm('Delete this note?')) return; setNotes(prev => prev.filter(n=>n.id!==selectedNoteId)); setSelectedNoteId(null); setCanvasItems([]); }}>Delete</button>
+            </div>
+            <div className="notes-list">
+              {notes.map(n => (
+                <div key={n.id} className={`notes-list-item ${selectedNoteId===n.id ? 'active':''}`} onClick={() => setSelectedNoteId(n.id)}>
+                  <div style={{ fontWeight: 700 }}>{n.title||'Untitled'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{new Date(n.updatedAt||n.createdAt).toLocaleString()}</div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+              {notes.length===0 && <div className="empty">No notes yet. Click New to create one.</div>}
+            </div>
+            <div className="notes-sidebar-footer">
+              <input className="input" placeholder="Title" value={noteTitle} onChange={(e)=>setNoteTitle(e.target.value)} />
+              <button className="btn" onClick={() => { if (!selectedNoteId) return; setNotes(prev=>prev.map(n=> n.id===selectedNoteId ? { ...n, title: noteTitle||n.title, body: noteBody||n.body, updatedAt:new Date().toISOString() } : n)); setNoteTitle(''); setNoteBody(''); }}>Save</button>
+            </div>
+          </aside>
         </div>
       ) : (
         <main className="board fade-in" onClick={() => setMenuOpen(false)}>

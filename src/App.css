@@ -293,3 +293,32 @@ body {
 @media (max-width: 700px) {
   .notes-grid { grid-template-columns: 1fr; }
 }
+
+/* Notes canvas layout */
+.notes-layout { margin: 10px 18px 18px; display: grid; gap: 12px; grid-template-columns: 1fr 300px; align-items: start; }
+.notes-canvas { position: relative; height: 72vh; background-color: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm);
+  background-image:
+    linear-gradient(to right, rgba(148,163,184,0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148,163,184,0.15) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.canvas-toolbar { display: flex; gap: 8px; align-items: center; padding: 8px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 1; }
+.canvas-inner { position: absolute; inset: 0; }
+.canvas-item { position: absolute; border: 1px solid transparent; border-radius: 6px; }
+.canvas-item.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.25); }
+.canvas-item .resize { position: absolute; right: -6px; bottom: -6px; width: 12px; height: 12px; background: var(--accent); border-radius: 3px; cursor: nwse-resize; }
+.canvas-text { padding: 6px 8px; color: var(--text); background: rgba(255,255,255,0.65); border-radius: 6px; border: 1px solid var(--border); }
+:root[data-theme='dark'] .canvas-text { background: rgba(17,24,39,0.6); }
+
+.notes-sidebar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; box-shadow: var(--shadow-sm); }
+.notes-sidebar-header { display: flex; gap: 8px; align-items: center; padding: 10px; border-bottom: 1px solid var(--border); }
+.notes-list { overflow: auto; padding: 6px; display: grid; gap: 6px; }
+.notes-list-item { display: grid; gap: 2px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.5); cursor: pointer; color: var(--text); }
+.notes-list-item:hover { filter: brightness(1.02); }
+.notes-list-item.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,0.25); }
+.notes-sidebar-footer { padding: 8px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+@media (max-width: 900px) {
+  .notes-layout { grid-template-columns: 1fr; }
+  .notes-canvas { height: 60vh; }
+}

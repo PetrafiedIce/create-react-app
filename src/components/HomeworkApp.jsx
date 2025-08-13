@@ -772,14 +772,39 @@ export default function HomeworkApp() {
     const url = URL.createObjectURL(file);
     setCanvasItems(prev => [...prev, { id: generateId(), type: 'image', x: 60, y: 80, w: 240, h: 180, src: url }]);
   };
+  const gridSize = 10;
+  const snap = (v) => Math.round(v / gridSize) * gridSize;
+  const clampRect = (x, y, w, h) => {
+    const pad = 2;
+    const maxW = Math.max(60, w);
+    const maxH = Math.max(40, h);
+    return { x: Math.max(pad, x), y: Math.max(pad, y), w: maxW, h: maxH };
+  };
   const onDrag = (id, dx, dy) => {
-    setCanvasItems(prev => prev.map(it => it.id === id ? { ...it, x: Math.max(0, it.x + dx), y: Math.max(0, it.y + dy) } : it));
+    setCanvasItems(prev => prev.map(it => {
+      if (it.id !== id) return it;
+      const next = clampRect(snap(it.x + dx), snap(it.y + dy), it.w, it.h);
+      return { ...it, ...next };
+    }));
   };
   const onResize = (id, dw, dh) => {
-    setCanvasItems(prev => prev.map(it => it.id === id ? { ...it, w: Math.max(60, it.w + dw), h: Math.max(40, it.h + dh) } : it));
+    setCanvasItems(prev => prev.map(it => {
+      if (it.id !== id) return it;
+      const next = clampRect(it.x, it.y, snap(it.w + dw), snap(it.h + dh));
+      return { ...it, ...next };
+    }));
   };
   const updateText = (id, text) => setCanvasItems(prev => prev.map(it => it.id === id ? { ...it, text } : it));
   const removeItem = (id) => setCanvasItems(prev => prev.filter(it => it.id !== id));
+  const duplicateItem = () => {
+    if (!selectedItemId) return;
+    setCanvasItems(prev => {
+      const it = prev.find(x => x.id === selectedItemId); if (!it) return prev;
+      const copy = { ...it, id: generateId(), x: snap(it.x + 20), y: snap(it.y + 20) };
+      return [...prev, copy];
+    });
+  };
+  const deleteSelected = () => { if (!selectedItemId) return; removeItem(selectedItemId); setSelectedItemId(null); };
 
   // Pointer handlers for drag/resize
   const dragState = useRef({ id: null, lastX: 0, lastY: 0, mode: 'move' });
@@ -787,8 +812,9 @@ export default function HomeworkApp() {
     e.stopPropagation();
     dragState.current = { id, lastX: e.clientX, lastY: e.clientY, mode };
     setSelectedItemId(id);
+    document.body.classList.add('grabbing');
     window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointerup', onPointerUp, { once: true });
   };
   const onPointerMove = (e) => {
     const s = dragState.current; if (!s.id) return;
@@ -798,8 +824,8 @@ export default function HomeworkApp() {
   };
   const onPointerUp = () => {
     dragState.current = { id: null, lastX: 0, lastY: 0, mode: 'move' };
+    document.body.classList.remove('grabbing');
     window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
   };
 
   return (
@@ -914,9 +940,14 @@ export default function HomeworkApp() {
                 Add image
                 <input type="file" accept="image/*" onChange={(e) => { const f=e.target.files?.[0]; if (f) addImageItem(f); e.target.value=''; }} />
               </label>
+              <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
+              <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
               <span className="chip">{selectedNoteId ? 'Editing canvas' : 'Select a note →'}</span>
             </div>
             <div className="canvas-inner" onClick={() => setSelectedItemId(null)}>
+              {!selectedNoteId && <div className="canvas-hint">Select a note on the right to begin</div>}
+              {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Use Add text or Add image to add items</div>}
+              {selectedNoteId && <div className="canvas-status">{canvasItems.length} item(s)</div>}
               {canvasItems.map(it => (
                 <div key={it.id}
                   className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}

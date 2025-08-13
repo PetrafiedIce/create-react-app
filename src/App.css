@@ -322,3 +322,11 @@ body {
   .notes-layout { grid-template-columns: 1fr; }
   .notes-canvas { height: 60vh; }
 }
+
+/* Polished notes canvas UX */
+.canvas-inner { user-select: none; }
+.canvas-item { cursor: grab; }
+.canvas-item.grabbing { cursor: grabbing; }
+.canvas-hint { position: absolute; top: 8px; left: 8px; font-size: 12px; color: var(--text-dim); background: rgba(0,0,0,0.06); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.canvas-status { position: absolute; top: 8px; right: 8px; font-size: 12px; color: var(--text-dim); background: rgba(0,0,0,0.06); padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.canvas-text { user-select: text; }

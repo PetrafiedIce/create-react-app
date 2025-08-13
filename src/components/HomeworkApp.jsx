@@ -140,9 +140,9 @@ function InlineDatePicker({ valueISO, onChange }) {
   return (
     <div className="date-picker">
       <div className="date-picker-header">
-        <button className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
+        <button type="button" className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
         <div className="chip">{viewDate.toLocaleString(undefined, { month:'long', year:'numeric' })}</div>
-        <button className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()+1, 1))}>Next</button>
+        <button type="button" className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()+1, 1))}>Next</button>
       </div>
       <div className="weekday-grid" style={{ margin: 0 }}>
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="weekday">{d}</div>)}
@@ -151,7 +151,7 @@ function InlineDatePicker({ valueISO, onChange }) {
         {days.map((dt, idx) => {
           const muted = dt.getMonth() !== viewDate.getMonth();
           const isSel = selected && sameDay(dt, selected);
-          return <div key={idx} className={`date-cell ${muted?'muted':''} ${isSel?'selected':''}`} onClick={()=>onChange(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), selected?.getHours()||17, selected?.getMinutes()||0).toISOString())}>{dt.getDate()}</div>;
+          return <button type="button" key={idx} className={`date-cell ${muted?'muted':''} ${isSel?'selected':''}`} onClick={()=>onChange(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), selected?.getHours()||17, selected?.getMinutes()||0).toISOString())}>{dt.getDate()}</button>;
         })}
       </div>
     </div>

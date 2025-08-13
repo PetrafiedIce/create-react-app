@@ -379,12 +379,13 @@ body {
 }
 
 /* Inline date picker */
-.date-picker { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px; display: grid; gap: 8px; }
-.date-picker-header { display: flex; align-items: center; justify-content: space-between; }
-.date-picker-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.date-cell { padding: 8px 0; text-align: center; border-radius: 8px; cursor: pointer; color: var(--text); }
+.date-picker { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.date-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.date-picker-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.date-cell { padding: 10px 0; text-align: center; border-radius: 10px; cursor: pointer; color: var(--text); border: 1px solid transparent; }
+.date-cell:hover { background: var(--surface-2); }
 .date-cell.muted { color: var(--text-dim); }
-.date-cell.selected { background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.35); }
+.date-cell.selected { background: rgba(37,99,235,0.12); border-color: rgba(37,99,235,0.35); }
 
 /* Quick chips */
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }

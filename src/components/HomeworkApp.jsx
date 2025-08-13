@@ -216,11 +216,25 @@ function TaskForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
         </label>
         <label className="field">
           <span className="label">Subject</span>
-          <select className="input" value={subject} onChange={(e) => setSubject(e.target.value)}>
+          <select
+            className="input"
+            value={subject}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '__new__') {
+                const name = (prompt('New subject name') || '').trim();
+                if (name) setSubject(name);
+                else e.target.value = subject || '';
+              } else {
+                setSubject(v);
+              }
+            }}
+          >
             <option value="">Select subject</option>
             {suggestedSubjects.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
+            <option value="__new__">＋ New subject…</option>
           </select>
         </label>
         <label className="field">

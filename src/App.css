@@ -41,7 +41,7 @@ body {
 .hw-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 18px; border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95));
+  background: var(--surface);
   position: sticky; top: 0; z-index: 10; backdrop-filter: blur(6px);
 }
 .hw-title { font-weight: 700; letter-spacing: 0.2px; font-size: 18px; color: var(--text); }
@@ -128,7 +128,7 @@ body {
 .chip-medium { background: rgba(59,130,246,0.1); color: #60a5fa; border-color: rgba(59,130,246,0.25); }
 .chip-high { background: rgba(239,68,68,0.1); color: #ef4444; border-color: rgba(239,68,68,0.25); }
 
-.hw-footer { padding: 12px 18px; color: var(--text-dim); font-size: 12px; border-top: 1px solid var(--border); background: linear-gradient(180deg, rgba(248,250,252,0.95), rgba(255,255,255,0.95)); }
+.hw-footer { padding: 12px 18px; color: var(--text-dim); font-size: 12px; border-top: 1px solid var(--border); background: var(--surface); }
 
 /* Calendar and Timer extensions */
 .calendar { margin: 0 18px 18px; }
@@ -249,3 +249,13 @@ body {
 /* Settings modal */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: flex-start; justify-content: center; padding: 30px 16px; z-index: 40; }
 .modal-panel { width: min(920px, 96vw); }
+
+/* Global sizing and focus */
+* { box-sizing: border-box; }
+.btn:focus-visible, .icon-btn:focus-visible, .input:focus-visible, select.input:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.35); }
+
+/* Ensure containers don't overflow */
+.board { max-width: 1400px; margin-left: auto; margin-right: auto; }
+.column { min-width: 0; }
+.panel { max-width: 1400px; margin-left: auto; margin-right: auto; }
+.hero { max-width: 1400px; margin-left: auto; margin-right: auto; }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 
 const STORAGE_KEY = 'homework_tracker_v1';
 const SETTINGS_KEY = 'homework_settings_v1';
@@ -267,6 +267,19 @@ export default function HomeworkApp() {
   const [darkMode, setDarkMode] = useState(Boolean(initialSettings.darkMode));
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const menuRef = useRef(null);
+  const settingsRef = useRef(null);
+
+  // Initialize theme on mount from saved setting
+  useEffect(() => {
+    if (darkMode) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+  }, []);
+  // React to theme changes
+  useEffect(() => {
+    if (darkMode) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+  }, [darkMode]);
 
   // Motivational messages
   const messages = [
@@ -342,6 +355,7 @@ export default function HomeworkApp() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [tasks]);
 
+  // Working search: filter tasks by title/subject/notes
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     const result = tasks.filter((t) => {
@@ -374,6 +388,27 @@ export default function HomeworkApp() {
     };
     return result.sort(compare);
   }, [tasks, search, statusFilter, subjectFilter, sortBy]);
+
+  // ARIA: prevent interaction with dropdown when hidden
+  useEffect(() => {
+    if (menuRef.current) {
+      if (menuOpen) {
+        menuRef.current.removeAttribute('aria-hidden');
+      } else {
+        menuRef.current.setAttribute('aria-hidden', 'true');
+      }
+    }
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (settingsRef.current) {
+      if (settingsOpen) {
+        settingsRef.current.removeAttribute('aria-hidden');
+      } else {
+        settingsRef.current.setAttribute('aria-hidden', 'true');
+      }
+    }
+  }, [settingsOpen]);
 
   const grouped = useMemo(() => {
     const now = new Date();
@@ -670,24 +705,24 @@ export default function HomeworkApp() {
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
         <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>School Planner</div>
         <div className="center">
-          <input className="input search" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="right">
-          <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" onClick={() => setActiveTab('planner')}>📋</button>
-          <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" onClick={() => setActiveTab('calendar')}>📆</button>
-          <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
+          <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
+          <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
+          <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
           <button className="icon-btn" title="Add task" onClick={beginAdd}>＋</button>
-          <button className="icon-btn" title="More" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
+          <button className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
-            <div className="dropdown slide-down" onClick={(e) => e.stopPropagation()}>
-              <div className="item" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</div>
-              <div className="item" onClick={() => { setMenuOpen(false); exportCsv(); }}>Export CSV</div>
+            <div ref={menuRef} className="dropdown slide-down" role="menu" onClick={(e) => e.stopPropagation()}>
+              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</button>
+              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportCsv(); }}>Export CSV</button>
               <hr />
-              <label className="item file-label">
+              <label className="item file-label" role="menuitem">
                 <span>Import JSON</span>
-                <input type="file" accept="application/json" onChange={(e) => { setMenuOpen(false); importJson(e); }} />
+                <input tabIndex={menuOpen ? 0 : -1} type="file" accept="application/json" onChange={(e) => { setMenuOpen(false); importJson(e); }} />
               </label>
-              <div className="item" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</div>
+              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</button>
             </div>
           )}
         </div>
@@ -810,7 +845,7 @@ export default function HomeworkApp() {
 
       {settingsOpen && (
         <div className="modal" onClick={() => setSettingsOpen(false)}>
-          <div className="panel modal-panel slide-down" onClick={(e) => e.stopPropagation()}>
+          <div ref={settingsRef} className="panel modal-panel slide-down" role="dialog" aria-modal="true" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
             <div className="panel-title">Settings</div>
             <div className="settings-grid">
               <label className="field">

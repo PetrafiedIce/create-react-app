@@ -85,17 +85,15 @@ body {
 .panel { margin: 0 18px 10px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
 .panel-title { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
 
-.task-form { display: grid; gap: 12px; }
-.form-grid { display: grid; gap: 10px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.field { display: grid; gap: 6px; grid-column: span 3; }
-.field .label { font-size: 12px; color: var(--text-dim); }
-.field .input { width: 100%; }
-.field:nth-child(1) { grid-column: span 3; }
-.field:nth-child(2) { grid-column: span 3; }
-.field:nth-child(3), .field:nth-child(4), .field:nth-child(5), .field:nth-child(6) { grid-column: span 1; }
-
-.task-form textarea.input { resize: vertical; }
-.form-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.task-form { display: grid; gap: 14px; padding: 4px; }
+.form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.form-section .section-title { font-weight: 700; font-size: 13px; color: var(--text-dim); }
+.form-row { display: grid; gap: 10px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.form-row .field { grid-column: span 3; }
+.form-row .field.wide { grid-column: span 6; }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; }
+.task-form .chips { gap: 8px; }
+.task-form .btn, .task-form .input, .task-form select, .task-form textarea { min-height: 38px; }
 
 /* Prevent board overflow with flexible columns */
 .board { display: grid; gap: 14px; padding: 10px 18px 18px; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
@@ -404,3 +402,20 @@ body {
 
 /* Modal refinements */
 .modal-panel { max-height: 90vh; overflow: auto; }
+
+/* Assignment form layout improvements */
+.task-form { display: grid; gap: 14px; padding: 4px; }
+.form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.form-section .section-title { font-weight: 700; font-size: 13px; color: var(--text-dim); }
+.form-row { display: grid; gap: 10px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.form-row .field { grid-column: span 3; }
+.form-row .field.wide { grid-column: span 6; }
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; }
+.task-form .chips { gap: 8px; }
+.task-form .btn, .task-form .input, .task-form select, .task-form textarea { min-height: 38px; }
+
+@media (max-width: 900px) {
+  .form-row { grid-template-columns: 1fr; }
+  .form-row .field, .form-row .field.wide { grid-column: span 1; }
+  .task-form .btn { min-height: 44px; }
+}

@@ -208,84 +208,91 @@ function TaskForm({ initialTask, onSave, onCancel }) {
 
   return (
     <form className="task-form" onSubmit={handleSubmit}>
-      <label className="field">
-        <span className="label">Title</span>
-        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Math worksheet on fractions" required />
-      </label>
-      <div className="chips">
-        {suggestedSubjects.map(s => (
-          <button key={s} type="button" className="btn btn-ghost" onClick={()=>setSubject(s)}>{s}</button>
-        ))}
+      <div className="form-section">
+        <div className="section-title">Basics</div>
+        <label className="field">
+          <span className="label">Title</span>
+          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Math worksheet on fractions" required />
+        </label>
+        <div className="chips">
+          {suggestedSubjects.map(s => (
+            <button key={s} type="button" className="btn btn-ghost" title={`Use subject: ${s}`} onClick={()=>setSubject(s)}>{s}</button>
+          ))}
+        </div>
+        <div className="form-row">
+          <label className="field">
+            <span className="label">Subject</span>
+            <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Math" />
+          </label>
+          <label className="field">
+            <span className="label">Priority</span>
+            <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
+              {priorities.map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
-      <div className="form-grid" style={{ marginTop: 8 }}>
-        <label className="field">
-          <span className="label">Subject</span>
-          <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Math" />
-        </label>
-        <label className="field">
-          <span className="label">Priority</span>
-          <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            {priorities.map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
-          </select>
-        </label>
+      <div className="form-section">
+        <div className="section-title">Schedule</div>
+        <div className="form-row">
+          <label className="field">
+            <span className="label">Due date</span>
+            <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
+          </label>
+          <label className="field">
+            <span className="label">Estimate (min)</span>
+            <div className="chips">
+              {quickDurations.map(m => (
+                <button key={m} type="button" className="btn btn-ghost" title={`${m} minutes`} onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
+              ))}
+            </div>
+            <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} placeholder="60" />
+          </label>
+        </div>
+        <div className="form-row">
+          <label className="field">
+            <span className="label">Repeat</span>
+            <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
+              {repeatOptions.map(r => <option key={r} value={r}>{r[0].toUpperCase()+r.slice(1)}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span className="label">Reminder (min before)</span>
+            <div className="chips">
+              {reminderQuick.map(m => (
+                <button key={m} type="button" className="btn btn-ghost" title={`${m} minutes before`} onClick={()=>setReminderMinutes(m)}>{m}m</button>
+              ))}
+            </div>
+            <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e) => setReminderMinutes(e.target.value)} placeholder="10" />
+          </label>
+        </div>
       </div>
 
-      <div className="form-grid" style={{ marginTop: 8 }}>
-        <label className="field">
-          <span className="label">Due date</span>
-          <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
-        </label>
-        <label className="field">
-          <span className="label">Estimate (min)</span>
-          <div className="chips">
-            {quickDurations.map(m => (
-              <button key={m} type="button" className="btn btn-ghost" onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
-            ))}
-          </div>
-          <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} />
-        </label>
-      </div>
-
-      <div className="form-grid" style={{ marginTop: 8 }}>
-        <label className="field">
-          <span className="label">Repeat</span>
-          <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
-            {repeatOptions.map(r => <option key={r} value={r}>{r[0].toUpperCase()+r.slice(1)}</option>)}
-          </select>
-        </label>
-        <label className="field">
-          <span className="label">Reminder (min before)</span>
-          <div className="chips">
-            {reminderQuick.map(m => (
-              <button key={m} type="button" className="btn btn-ghost" onClick={()=>setReminderMinutes(m)}>{m}m</button>
-            ))}
-          </div>
-          <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e) => setReminderMinutes(e.target.value)} />
-        </label>
-      </div>
-
-      <div className="field" style={{ marginTop: 8 }}>
-        <span className="label">Subtasks</span>
+      <div className="form-section">
+        <div className="section-title">Subtasks</div>
         <div className="subtask-editor">
           {subtasks.map((s, idx) => (
             <div key={s.id} className="subtask-row">
               <input className="input" value={s.text} onChange={(e)=>updateSubtaskText(s.id, e.target.value)} placeholder={`Step ${idx+1}`} />
-              <button type="button" className="btn btn-ghost" onClick={()=>removeSubtask(s.id)}>Remove</button>
+              <button type="button" className="btn btn-ghost" title="Remove subtask" onClick={()=>removeSubtask(s.id)}>Remove</button>
             </div>
           ))}
-          <button type="button" className="btn btn-ghost" onClick={addSubtask}>＋ Add subtask</button>
+          <button type="button" className="btn btn-ghost" title="Add subtask" onClick={addSubtask}>＋ Add subtask</button>
         </div>
       </div>
 
-      <label className="field" style={{ marginTop: 8 }}>
-        <span className="label">Notes</span>
-        <textarea className="input" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details, links, or requirements" />
-      </label>
+      <div className="form-section">
+        <div className="section-title">Notes</div>
+        <label className="field wide">
+          <span className="label">Description</span>
+          <textarea className="input" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details, links, or requirements" />
+        </label>
+      </div>
 
       <div className="form-actions" style={{ flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn">Save assignment</button>
+        <button type="button" className="btn btn-ghost" onClick={onCancel} title="Cancel changes">Cancel</button>
+        <button type="submit" className="btn" title="Save assignment">Save assignment</button>
       </div>
     </form>
   );

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 const STORAGE_KEY = 'homework_tracker_v1';
 const SETTINGS_KEY = 'homework_settings_v1';
 const IN_PROGRESS_ID_KEY = 'homework_current_task_id';
+const NOTES_KEY = 'homework_notes_v1';
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -83,6 +84,11 @@ function loadSettings() {
 function saveSettings(s) {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch {}
 }
+
+function loadNotes() {
+  try { const raw = localStorage.getItem(NOTES_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+}
+function saveNotes(notes) { try { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); } catch {} }
 
 function defaultNewTask() {
   const now = new Date();
@@ -256,6 +262,10 @@ export default function HomeworkApp() {
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
   const [timerRunning, setTimerRunning] = useState(false);
   const [activeTab, setActiveTab] = useState('planner'); // planner | calendar | settings
+  const [notes, setNotes] = useState(() => loadNotes());
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteBody, setNoteBody] = useState('');
   // Canvas/Sync settings
   const initialSettings = useMemo(() => loadSettings(), []);
   const [canvasIcsUrl, setCanvasIcsUrl] = useState(initialSettings.canvasIcsUrl || '');
@@ -273,6 +283,7 @@ export default function HomeworkApp() {
   const [currentTaskId, setCurrentTaskId] = useState(() => localStorage.getItem(IN_PROGRESS_ID_KEY) || '');
 
   useEffect(() => { if (currentTaskId) localStorage.setItem(IN_PROGRESS_ID_KEY, currentTaskId); else localStorage.removeItem(IN_PROGRESS_ID_KEY); }, [currentTaskId]);
+  useEffect(() => { saveNotes(notes); }, [notes]);
 
   // Initialize theme on mount from saved setting
   useEffect(() => {
@@ -715,6 +726,22 @@ export default function HomeworkApp() {
     return map;
   }, [tasks]);
 
+  const beginNewNote = () => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); setActiveTab('notes'); };
+  const saveNote = () => {
+    const title = noteTitle.trim(); const body = noteBody.trim(); if (!title && !body) return;
+    if (editingNoteId) {
+      setNotes(prev => prev.map(n => n.id === editingNoteId ? { ...n, title, body, updatedAt: new Date().toISOString() } : n));
+    } else {
+      setNotes(prev => [{ id: generateId(), title, body, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...prev]);
+    }
+    setNoteTitle(''); setNoteBody('');
+  };
+  const editNote = (id) => {
+    const n = notes.find(x => x.id === id); if (!n) return;
+    setEditingNoteId(id); setNoteTitle(n.title); setNoteBody(n.body); setActiveTab('notes');
+  };
+  const deleteNote = (id) => { if (!window.confirm('Delete this note?')) return; setNotes(prev => prev.filter(n => n.id !== id)); };
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -725,6 +752,7 @@ export default function HomeworkApp() {
         <div className="right">
           <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
           <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
+          <button className={`icon-btn ${activeTab==='notes' ? 'active' : ''}`} title="Notes" aria-pressed={activeTab==='notes'} onClick={() => setActiveTab('notes')}>📝</button>
           <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
           <button className="icon-btn" title="Add task" onClick={beginAdd}>＋</button>
           <button className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
@@ -815,6 +843,33 @@ export default function HomeworkApp() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      ) : activeTab === 'notes' ? (
+        <div className="notes-page fade-in" onClick={() => setMenuOpen(false)}>
+          <div className="panel">
+            <div className="panel-title">{editingNoteId ? 'Edit note' : 'New note'}</div>
+            <div className="task-form" style={{ display: 'grid', gap: 8 }}>
+              <input className="input" placeholder="Title" value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} />
+              <textarea className="input" rows={6} placeholder="Write your note..." value={noteBody} onChange={(e) => setNoteBody(e.target.value)} />
+              <div className="form-actions">
+                <button className="btn btn-ghost" onClick={() => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); }}>Clear</button>
+                <button className="btn" onClick={saveNote}>{editingNoteId ? 'Update note' : 'Add note'}</button>
+              </div>
+            </div>
+          </div>
+          <div className="notes-grid">
+            {notes.length === 0 && <div className="empty">No notes yet. Use the form above to add one.</div>}
+            {notes.map(n => (
+              <div key={n.id} className="note-card">
+                <div className="note-title">{n.title || 'Untitled'}</div>
+                <div className="note-body">{n.body}</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-ghost" onClick={() => editNote(n.id)}>Edit</button>
+                  <button className="btn btn-danger" onClick={() => deleteNote(n.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : (

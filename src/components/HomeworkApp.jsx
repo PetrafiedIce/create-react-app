@@ -1473,7 +1473,8 @@ export default function HomeworkApp() {
 function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onComplete, subjectColors }) {
   const dueDescriptor = formatDueDescriptor(task.dueAt);
   const dueDate = task.dueAt ? new Date(task.dueAt) : null;
-  const dueDateStr = dueDate ? dueDate.toLocaleString() : 'No date';
+  const dueDateFull = dueDate ? dueDate.toLocaleString() : 'No date';
+  const dueDateShort = dueDate ? `${dueDate.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}/...` : 'No date';
   const isOverdue = task.status !== 'done' && dueDate && dueDate < new Date();
   const subjectChipStyle = {
     borderColor: '#e2e8f0',
@@ -1509,8 +1510,8 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
           </div>
         )}
         <div className="due-row">
-          <span className="due-label">{dueDescriptor}</span>
-          <span className="due-date">{dueDateStr}</span>
+          <span className="due-label" title={dueDescriptor} style={{ whiteSpace: 'nowrap' }}>{dueDescriptor}</span>
+          <span className="due-date" title={dueDateFull} style={{ whiteSpace: 'nowrap' }}>{dueDateShort}</span>
         </div>
       </div>
       <div className="card-actions">

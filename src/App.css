@@ -124,7 +124,8 @@ body {
 .title { font-weight: 600; letter-spacing: 0.2px; }
 .meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .notes { color: var(--text-dim); font-size: 13px; white-space: pre-wrap; }
-.due-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-dim); font-size: 12px; }
+.due-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.due-date { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 .due-label { color: var(--accent-2); }
 
 .card-actions { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; }

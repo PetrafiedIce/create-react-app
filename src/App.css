@@ -422,3 +422,10 @@ body {
   .inspector-bar { bottom: 88px; }
   .canvas-zoom { bottom: 16px; }
 }
+
+/* Subtasks editor */
+.subtask-editor { display: grid; gap: 8px; }
+.subtask-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+
+/* Modal refinements */
+.modal-panel { max-height: 90vh; overflow: auto; }

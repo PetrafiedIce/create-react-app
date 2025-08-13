@@ -166,10 +166,25 @@ function TaskForm({ initialTask, onSave, onCancel }) {
   const [status, setStatus] = useState(initialTask.status ?? 'todo');
   const [dueAtISO, setDueAtISO] = useState(initialTask.dueAt ?? null);
   const [estimatedMinutes, setEstimatedMinutes] = useState(initialTask.estimatedMinutes ?? 60);
+  const [repeat, setRepeat] = useState(initialTask.repeat ?? 'none');
+  const [reminderMinutes, setReminderMinutes] = useState(initialTask.reminderMinutesBefore ?? 0);
+  const [subtasks, setSubtasks] = useState(Array.isArray(initialTask.subtasks) ? initialTask.subtasks : []);
 
   const suggestedSubjects = ['Math','Science','English','History','Art','PE'];
   const quickDurations = [15, 30, 45, 60, 90];
   const priorities = ['low','medium','high'];
+  const repeatOptions = ['none','daily','weekly','monthly'];
+  const reminderQuick = [0, 10, 30, 60, 120];
+
+  const addSubtask = () => {
+    setSubtasks(prev => [...prev, { id: generateId(), text: '' , done: false }]);
+  };
+  const updateSubtaskText = (id, text) => {
+    setSubtasks(prev => prev.map(s => s.id === id ? { ...s, text } : s));
+  };
+  const removeSubtask = (id) => {
+    setSubtasks(prev => prev.filter(s => s.id !== id));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -184,6 +199,9 @@ function TaskForm({ initialTask, onSave, onCancel }) {
       status,
       dueAt: dueAtISO,
       estimatedMinutes: Number(estimatedMinutes) || 0,
+      repeat,
+      reminderMinutesBefore: Number(reminderMinutes) || 0,
+      subtasks: subtasks.map(s => ({ id: s.id || generateId(), text: String(s.text || ''), done: Boolean(s.done) })),
       updatedAt: new Date().toISOString(),
     });
   };
@@ -199,6 +217,7 @@ function TaskForm({ initialTask, onSave, onCancel }) {
           <button key={s} type="button" className="btn btn-ghost" onClick={()=>setSubject(s)}>{s}</button>
         ))}
       </div>
+
       <div className="form-grid" style={{ marginTop: 8 }}>
         <label className="field">
           <span className="label">Subject</span>
@@ -228,6 +247,37 @@ function TaskForm({ initialTask, onSave, onCancel }) {
         </label>
       </div>
 
+      <div className="form-grid" style={{ marginTop: 8 }}>
+        <label className="field">
+          <span className="label">Repeat</span>
+          <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
+            {repeatOptions.map(r => <option key={r} value={r}>{r[0].toUpperCase()+r.slice(1)}</option>)}
+          </select>
+        </label>
+        <label className="field">
+          <span className="label">Reminder (min before)</span>
+          <div className="chips">
+            {reminderQuick.map(m => (
+              <button key={m} type="button" className="btn btn-ghost" onClick={()=>setReminderMinutes(m)}>{m}m</button>
+            ))}
+          </div>
+          <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e) => setReminderMinutes(e.target.value)} />
+        </label>
+      </div>
+
+      <div className="field" style={{ marginTop: 8 }}>
+        <span className="label">Subtasks</span>
+        <div className="subtask-editor">
+          {subtasks.map((s, idx) => (
+            <div key={s.id} className="subtask-row">
+              <input className="input" value={s.text} onChange={(e)=>updateSubtaskText(s.id, e.target.value)} placeholder={`Step ${idx+1}`} />
+              <button type="button" className="btn btn-ghost" onClick={()=>removeSubtask(s.id)}>Remove</button>
+            </div>
+          ))}
+          <button type="button" className="btn btn-ghost" onClick={addSubtask}>＋ Add subtask</button>
+        </div>
+      </div>
+
       <label className="field" style={{ marginTop: 8 }}>
         <span className="label">Notes</span>
         <textarea className="input" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details, links, or requirements" />
@@ -235,7 +285,7 @@ function TaskForm({ initialTask, onSave, onCancel }) {
 
       <div className="form-actions" style={{ flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn">Save task</button>
+        <button type="submit" className="btn">Save assignment</button>
       </div>
     </form>
   );
@@ -274,6 +324,7 @@ export default function HomeworkApp() {
   const [darkMode, setDarkMode] = useState(Boolean(initialSettings.darkMode));
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
   const menuRef = useRef(null);
   const settingsRef = useRef(null);
   const [currentTaskId, setCurrentTaskId] = useState(() => localStorage.getItem(IN_PROGRESS_ID_KEY) || '');
@@ -525,11 +576,13 @@ export default function HomeworkApp() {
   const beginAdd = () => {
     setEditingId(null);
     setIsAdding(true);
+    setTaskFormOpen(true);
   };
 
   const cancelForm = () => {
     setIsAdding(false);
     setEditingId(null);
+    setTaskFormOpen(false);
   };
 
   const upsertTask = (task) => {
@@ -540,10 +593,11 @@ export default function HomeworkApp() {
     });
     setIsAdding(false);
     setEditingId(null);
+    setTaskFormOpen(false);
   };
 
   const removeTask = (id) => {
-    if (!window.confirm('Delete this task?')) return;
+    if (!window.confirm('Delete this assignment?')) return;
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
@@ -619,6 +673,10 @@ export default function HomeworkApp() {
   };
 
   const editingTask = useMemo(() => tasks.find(t => t.id === editingId) || null, [tasks, editingId]);
+
+  useEffect(() => {
+    if (editingId != null) setTaskFormOpen(true);
+  }, [editingId]);
 
   // Calendar helpers
   const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
@@ -970,7 +1028,7 @@ export default function HomeworkApp() {
           <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
           <button className={`icon-btn ${activeTab==='notes' ? 'active' : ''}`} title="Notes" aria-pressed={activeTab==='notes'} onClick={() => setActiveTab('notes')}>📝</button>
           <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
-          <button className="icon-btn" title="Add task" onClick={beginAdd}>＋</button>
+          <button className="icon-btn" title="Add assignment" onClick={beginAdd}>＋</button>
           <button className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
             <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
@@ -994,6 +1052,29 @@ export default function HomeworkApp() {
               <h1 key={messageKey} className="hero-title slide-in">{messages[messageIdx]}</h1>
             </div>
             <p className="hero-subtitle">Stay consistent. The habits make the grade.</p>
+            <div className="toolbar" style={{ padding: 0, marginTop: 10 }}>
+              <div className="left">
+                <select className="input" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}>
+                  <option value="all">All statuses</option>
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+                <select className="input" value={subjectFilter} onChange={(e)=>setSubjectFilter(e.target.value)}>
+                  <option value="all">All subjects</option>
+                  {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select className="input" value={sortBy} onChange={(e)=>setSortBy(e.target.value)}>
+                  <option value="due">Sort: Due</option>
+                  <option value="priority">Sort: Priority</option>
+                  <option value="status">Sort: Status</option>
+                  <option value="updated">Sort: Updated</option>
+                </select>
+              </div>
+              <div className="right">
+                <button className="btn" onClick={beginAdd}>＋ New assignment</button>
+              </div>
+            </div>
           </div>
           <div className="stat-cards">
             <div className="stat-card">
@@ -1029,10 +1110,12 @@ export default function HomeworkApp() {
         </div>
       )}
 
-      {(isAdding || editingTask) && (
-        <div className="panel slide-down" onClick={() => setMenuOpen(false)}>
-          <div className="panel-title">{editingTask ? 'Edit task' : 'New task'}</div>
-          <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} />
+      {taskFormOpen && (
+        <div className="modal" onClick={cancelForm}>
+          <div className="panel modal-panel slide-down" onClick={(e)=>e.stopPropagation()}>
+            <div className="panel-title">{editingTask ? 'Edit assignment' : 'New assignment'}</div>
+            <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} />
+          </div>
         </div>
       )}
 
@@ -1356,10 +1439,10 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
           </>
         ) : (
           <>
-            {task.status !== 'done' && (
-              <button className="btn btn-outline" onClick={onStart}>Start</button>
+                         {task.status !== 'done' && (
+              <button className="btn" onClick={onStart}>Start</button>
             )}
-            <button className="btn btn-outline" onClick={onEdit}>Edit</button>
+            <button className="btn btn-ghost" onClick={onEdit}>Edit</button>
             <button className="btn btn-danger" onClick={onDelete}>Delete</button>
           </>
         )}

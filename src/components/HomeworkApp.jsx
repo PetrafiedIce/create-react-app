@@ -290,6 +290,9 @@ export default function HomeworkApp() {
   const menuRef = useRef(null);
   const settingsRef = useRef(null);
   const [currentTaskId, setCurrentTaskId] = useState(() => localStorage.getItem(IN_PROGRESS_ID_KEY) || '');
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [quickMenu, setQuickMenu] = useState({ open: false, x: 0, y: 0 });
+  const [textStyle, setTextStyle] = useState({ font: 'sans-serif', size: 16, color: '#111827' });
 
   useEffect(() => { if (currentTaskId) localStorage.setItem(IN_PROGRESS_ID_KEY, currentTaskId); else localStorage.removeItem(IN_PROGRESS_ID_KEY); }, [currentTaskId]);
   useEffect(() => { saveNotes(notes); }, [notes]);
@@ -837,6 +840,37 @@ export default function HomeworkApp() {
     window.removeEventListener('pointermove', onPointerMove);
   };
 
+  const handleCanvasDoubleClick = (e) => {
+    if (!selectedNoteId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = snap(e.clientX - rect.left);
+    const y = snap(e.clientY - rect.top);
+    const id = generateId();
+    setCanvasItems(prev => [...prev, { id, type: 'text', x, y, w: 240, h: 100, text: 'New text', style: { ...textStyle } }]);
+    setSelectedItemId(id);
+    setQuickMenu({ open: false, x: 0, y: 0 });
+  };
+
+  const handleCanvasClick = (e) => {
+    if (!selectedNoteId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setQuickMenu({ open: true, x, y });
+  };
+
+  const applyTextStyle = (key, value) => {
+    setTextStyle(prev => ({ ...prev, [key]: value }));
+    if (selectedItemId) {
+      setCanvasItems(prev => prev.map(it => it.id === selectedItemId && it.type==='text' ? { ...it, style: { ...(it.style||{}), [key]: value } } : it));
+    }
+  };
+
+  const addShapeItem = (fill = 'rgba(37,99,235,0.15)') => {
+    if (!selectedNoteId) return;
+    setCanvasItems(prev => [...prev, { id: generateId(), type: 'shape', x: 60, y: 60, w: 200, h: 120, fill }]);
+  };
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -943,7 +977,30 @@ export default function HomeworkApp() {
           </div>
         </div>
       ) : activeTab === 'notes' ? (
-        <div className="notes-layout fade-in" onClick={() => setMenuOpen(false)}>
+        <div className="notes-layout-left fade-in" onClick={() => setMenuOpen(false)} style={{ ['--notes-sidebar-w']: leftCollapsed ? '56px' : '260px' }}>
+          <aside className={`notes-left ${leftCollapsed ? 'collapsed' : ''}`}>
+            <div className="notes-left-header">
+              <button className="btn" onClick={() => { const nId = generateId(); const n={ id:nId, title:'New note', body:'', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }; setNotes(prev=>[n,...prev]); setSelectedNoteId(nId); }}>New</button>
+              <button className="btn btn-ghost" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
+            </div>
+            <div className="notes-left-body">
+              {notes.map(n => (
+                <div key={n.id} className={`notes-left-item ${selectedNoteId===n.id ? 'active':''}`} onClick={() => setSelectedNoteId(n.id)} onDoubleClick={() => { const title=prompt('Rename note', n.title||'')??n.title; setNotes(prev=>prev.map(x=>x.id===n.id?{...x,title,updatedAt:new Date().toISOString()}:x)); }}>
+                  <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title||'Untitled'}</div>
+                  {!leftCollapsed && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{new Date(n.updatedAt||n.createdAt).toLocaleString()}</div>}
+                </div>
+              ))}
+              {notes.length===0 && <div className="empty">No notes yet. Click New.</div>}
+            </div>
+            <div className="notes-left-footer">
+              {!leftCollapsed && (
+                <>
+                  <input className="input" placeholder="Title" value={noteTitle} onChange={(e)=>setNoteTitle(e.target.value)} />
+                  <button className="btn" onClick={() => { if (!selectedNoteId) return; setNotes(prev=>prev.map(n=> n.id===selectedNoteId ? { ...n, title: noteTitle||n.title, updatedAt:new Date().toISOString() } : n)); setNoteTitle(''); }}>Save</button>
+                </>
+              )}
+            </div>
+          </aside>
           <div className="notes-canvas">
             <div className="canvas-toolbar">
               <button className="btn" onClick={addTextItem}>Add text</button>
@@ -951,13 +1008,21 @@ export default function HomeworkApp() {
                 Add image
                 <input type="file" accept="image/*" onChange={(e) => { const f=e.target.files?.[0]; if (f) addImageItem(f); e.target.value=''; }} />
               </label>
+              <button className="btn btn-ghost" onClick={() => addShapeItem()}>Add rectangle</button>
+              <div className="chip">Text:</div>
+              <select className="input" value={textStyle.font} onChange={(e)=>applyTextStyle('font', e.target.value)}>
+                <option value="sans-serif">Sans</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Mono</option>
+              </select>
+              <input className="input" type="number" min="10" max="64" value={textStyle.size} onChange={(e)=>applyTextStyle('size', Number(e.target.value)||16)} />
+              <input className="input" type="color" value={textStyle.color} onChange={(e)=>applyTextStyle('color', e.target.value)} />
               <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
               <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
-              <span className="chip">{selectedNoteId ? 'Editing canvas' : 'Select a note →'}</span>
             </div>
-            <div className="canvas-inner" onClick={() => setSelectedItemId(null)}>
-              {!selectedNoteId && <div className="canvas-hint">Select a note on the right to begin</div>}
-              {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Use Add text or Add image to add items</div>}
+            <div className="canvas-inner" onDoubleClick={handleCanvasDoubleClick} onClick={handleCanvasClick}>
+              {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
+              {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
               {selectedNoteId && <div className="canvas-status">{canvasItems.length} item(s)</div>}
               {canvasItems.map(it => (
                 <div key={it.id}
@@ -970,37 +1035,29 @@ export default function HomeworkApp() {
                       className="canvas-text"
                       value={it.text}
                       onChange={(e) => updateText(it.id, e.target.value)}
-                      style={{ width: '100%', height: '100%' }}
+                      style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
                     />
-                  ) : (
+                  ) : it.type === 'image' ? (
                     <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
                   )}
                   <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
                   <button className="btn btn-ghost" style={{ position: 'absolute', top: -34, right: 0 }} onClick={(e) => { e.stopPropagation(); removeItem(it.id); }}>Remove</button>
                 </div>
               ))}
+              {quickMenu.open && selectedNoteId && (
+                <div className="quick-menu" style={{ left: quickMenu.x, top: quickMenu.y }} onClick={(e)=>e.stopPropagation()}>
+                  <div className="quick-item" onClick={() => { addTextItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add text</div>
+                  <div className="quick-item" onClick={() => { addShapeItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add rectangle</div>
+                  <label className="quick-item file-label">
+                    Import image
+                    <input type="file" accept="image/*" onChange={(e)=>{ const f=e.target.files?.[0]; if (f) addImageItem(f); setQuickMenu({ open:false, x:0, y:0 }); e.target.value=''; }} />
+                  </label>
+                </div>
+              )}
             </div>
           </div>
-          <aside className="notes-sidebar">
-            <div className="notes-sidebar-header">
-              <button className="btn" onClick={() => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); const nId = generateId(); const n={ id:nId, title:'New note', body:'', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }; setNotes(prev=>[n,...prev]); setSelectedNoteId(nId); }}>New</button>
-              <button className="btn btn-ghost" disabled={!selectedNoteId} onClick={() => { if (!selectedNoteId) return; const idx = notes.findIndex(n=>n.id===selectedNoteId); if (idx>=0) { const n=notes[idx]; const title = prompt('Rename note', n.title||'') ?? n.title; setNotes(prev => prev.map(x => x.id===selectedNoteId ? { ...x, title, updatedAt:new Date().toISOString() } : x)); } }}>Rename</button>
-              <button className="btn btn-danger" disabled={!selectedNoteId} onClick={() => { if (!selectedNoteId) return; if (!window.confirm('Delete this note?')) return; setNotes(prev => prev.filter(n=>n.id!==selectedNoteId)); setSelectedNoteId(null); setCanvasItems([]); }}>Delete</button>
-            </div>
-            <div className="notes-list">
-              {notes.map(n => (
-                <div key={n.id} className={`notes-list-item ${selectedNoteId===n.id ? 'active':''}`} onClick={() => setSelectedNoteId(n.id)}>
-                  <div style={{ fontWeight: 700 }}>{n.title||'Untitled'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{new Date(n.updatedAt||n.createdAt).toLocaleString()}</div>
-                </div>
-              ))}
-              {notes.length===0 && <div className="empty">No notes yet. Click New to create one.</div>}
-            </div>
-            <div className="notes-sidebar-footer">
-              <input className="input" placeholder="Title" value={noteTitle} onChange={(e)=>setNoteTitle(e.target.value)} />
-              <button className="btn" onClick={() => { if (!selectedNoteId) return; setNotes(prev=>prev.map(n=> n.id===selectedNoteId ? { ...n, title: noteTitle||n.title, body: noteBody||n.body, updatedAt:new Date().toISOString() } : n)); setNoteTitle(''); setNoteBody(''); }}>Save</button>
-            </div>
-          </aside>
         </div>
       ) : (
         <main className="board fade-in" onClick={() => setMenuOpen(false)}>
@@ -1053,19 +1110,6 @@ export default function HomeworkApp() {
                 <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
                   <option value="light">Light</option>
                   <option value="dark">Dark</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Primary color</span>
-                <select className="input" onChange={(e) => {
-                  const color = e.target.value; const root = document.documentElement;
-                  if (color === 'blue') root.style.setProperty('--accent', '#2563eb');
-                  if (color === 'violet') root.style.setProperty('--accent', '#7c3aed');
-                  if (color === 'green') root.style.setProperty('--accent', '#16a34a');
-                }}>
-                  <option value="blue">Blue</option>
-                  <option value="violet">Violet</option>
-                  <option value="green">Green</option>
                 </select>
               </label>
               <label className="field">

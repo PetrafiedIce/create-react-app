@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 
 const STORAGE_KEY = 'homework_tracker_v1';
 const SETTINGS_KEY = 'homework_settings_v1';
+const IN_PROGRESS_ID_KEY = 'homework_current_task_id';
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -269,6 +270,9 @@ export default function HomeworkApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const menuRef = useRef(null);
   const settingsRef = useRef(null);
+  const [currentTaskId, setCurrentTaskId] = useState(() => localStorage.getItem(IN_PROGRESS_ID_KEY) || '');
+
+  useEffect(() => { if (currentTaskId) localStorage.setItem(IN_PROGRESS_ID_KEY, currentTaskId); else localStorage.removeItem(IN_PROGRESS_ID_KEY); }, [currentTaskId]);
 
   // Initialize theme on mount from saved setting
   useEffect(() => {
@@ -496,7 +500,18 @@ export default function HomeworkApp() {
   };
 
   const setInProgress = (id) => {
+    setCurrentTaskId(id);
     setTasks(prev => prev.map(t => (t.id === id ? { ...t, status: 'in_progress', updatedAt: new Date().toISOString() } : t)));
+  };
+
+  const pauseTask = (id) => {
+    if (currentTaskId === id) setCurrentTaskId('');
+    setTasks(prev => prev.map(t => (t.id === id ? { ...t, status: 'todo', updatedAt: new Date().toISOString() } : t)));
+  };
+
+  const completeTask = (id) => {
+    if (currentTaskId === id) setCurrentTaskId('');
+    toggleDone(id, true);
   };
 
   const exportJson = () => {
@@ -714,7 +729,7 @@ export default function HomeworkApp() {
           <button className="icon-btn" title="Add task" onClick={beginAdd}>＋</button>
           <button className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
-            <div ref={menuRef} className="dropdown slide-down" role="menu" onClick={(e) => e.stopPropagation()}>
+            <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
               <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</button>
               <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportCsv(); }}>Export CSV</button>
               <hr />
@@ -809,7 +824,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
               {grouped.overdue.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
               ))}
             </div>
           </section>
@@ -818,7 +833,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
               {grouped.today.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
               ))}
             </div>
           </section>
@@ -827,7 +842,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
               {grouped.upcoming.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
               ))}
             </div>
           </section>
@@ -836,7 +851,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
               {grouped.done.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
               ))}
             </div>
           </section>
@@ -943,7 +958,7 @@ export default function HomeworkApp() {
   );
 }
 
-function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, subjectColors }) {
+function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onComplete, subjectColors }) {
   const dueDescriptor = formatDueDescriptor(task.dueAt);
   const dueDate = task.dueAt ? new Date(task.dueAt) : null;
   const dueDateStr = dueDate ? dueDate.toLocaleString() : 'No date';
@@ -989,11 +1004,20 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, subjectColors
         </div>
       </div>
       <div className="card-actions">
-        {task.status !== 'done' && task.status !== 'in_progress' && (
-          <button className="btn btn-outline" onClick={onStart}>Start</button>
+        {task.status === 'in_progress' ? (
+          <>
+            <button className="btn" onClick={() => onPause(task.id)}>Pause</button>
+            <button className="btn" onClick={() => onComplete(task.id)}>Completed</button>
+          </>
+        ) : (
+          <>
+            {task.status !== 'done' && (
+              <button className="btn btn-outline" onClick={onStart}>Start</button>
+            )}
+            <button className="btn btn-outline" onClick={onEdit}>Edit</button>
+            <button className="btn btn-danger" onClick={onDelete}>Delete</button>
+          </>
         )}
-        <button className="btn btn-outline" onClick={onEdit}>Edit</button>
-        <button className="btn btn-danger" onClick={onDelete}>Delete</button>
       </div>
     </div>
   );

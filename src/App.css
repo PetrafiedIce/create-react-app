@@ -404,3 +404,21 @@ body {
   .quick-item { padding: 10px 12px; }
   .notes-left-toggle { left: 10px; top: 10px; }
 }
+
+/* Inline date picker */
+.date-picker { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px; display: grid; gap: 8px; }
+.date-picker-header { display: flex; align-items: center; justify-content: space-between; }
+.date-picker-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.date-cell { padding: 8px 0; text-align: center; border-radius: 8px; cursor: pointer; color: var(--text); }
+.date-cell.muted { color: var(--text-dim); }
+.date-cell.selected { background: rgba(37,99,235,0.15); border: 1px solid rgba(37,99,235,0.35); }
+
+/* Quick chips */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Tweak mobile overlays to avoid overlaps */
+@media (max-width: 700px) {
+  .canvas-toolbox { bottom: 16px; }
+  .inspector-bar { bottom: 88px; }
+  .canvas-zoom { bottom: 16px; }
+}

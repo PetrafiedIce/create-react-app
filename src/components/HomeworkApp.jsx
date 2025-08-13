@@ -126,18 +126,50 @@ function StatusBadge({ status }) {
   return <span className={`badge status-${status}`}>{label}</span>;
 }
 
+function InlineDatePicker({ valueISO, onChange }) {
+  const [viewDate, setViewDate] = useState(() => valueISO ? new Date(valueISO) : new Date());
+  const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+  const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth()+1, 0);
+  const startOfGrid = (d) => { const s = startOfMonth(d); const wd = s.getDay(); return new Date(s.getFullYear(), s.getMonth(), s.getDate() - wd); };
+  const days = []; {
+    const gridStart = startOfGrid(viewDate);
+    for (let i = 0; i < 42; i++) { const dt = new Date(gridStart); dt.setDate(gridStart.getDate() + i); days.push(dt); }
+  }
+  const sameDay = (a,b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  const selected = valueISO ? new Date(valueISO) : null;
+  return (
+    <div className="date-picker">
+      <div className="date-picker-header">
+        <button className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
+        <div className="chip">{viewDate.toLocaleString(undefined, { month:'long', year:'numeric' })}</div>
+        <button className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()+1, 1))}>Next</button>
+      </div>
+      <div className="weekday-grid" style={{ margin: 0 }}>
+        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="weekday">{d}</div>)}
+      </div>
+      <div className="date-picker-grid">
+        {days.map((dt, idx) => {
+          const muted = dt.getMonth() !== viewDate.getMonth();
+          const isSel = selected && sameDay(dt, selected);
+          return <div key={idx} className={`date-cell ${muted?'muted':''} ${isSel?'selected':''}`} onClick={()=>onChange(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), selected?.getHours()||17, selected?.getMinutes()||0).toISOString())}>{dt.getDate()}</div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TaskForm({ initialTask, onSave, onCancel }) {
   const [title, setTitle] = useState(initialTask.title ?? '');
   const [subject, setSubject] = useState(initialTask.subject ?? '');
   const [notes, setNotes] = useState(initialTask.notes ?? '');
   const [priority, setPriority] = useState(initialTask.priority ?? 'medium');
   const [status, setStatus] = useState(initialTask.status ?? 'todo');
-  const [dueAt, setDueAt] = useState(toLocalInputValue(initialTask.dueAt));
+  const [dueAtISO, setDueAtISO] = useState(initialTask.dueAt ?? null);
   const [estimatedMinutes, setEstimatedMinutes] = useState(initialTask.estimatedMinutes ?? 60);
-  const [subtasks, setSubtasks] = useState(initialTask.subtasks ?? []);
-  const [newSubtask, setNewSubtask] = useState('');
-  const [repeat, setRepeat] = useState(initialTask.repeat ?? 'none');
-  const [reminderMinutesBefore, setReminderMinutesBefore] = useState(initialTask.reminderMinutesBefore ?? 0);
+
+  const suggestedSubjects = ['Math','Science','English','History','Art','PE'];
+  const quickDurations = [15, 30, 45, 60, 90];
+  const priorities = ['low','medium','high'];
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -150,103 +182,58 @@ function TaskForm({ initialTask, onSave, onCancel }) {
       notes: notes.trim(),
       priority,
       status,
-      dueAt: fromLocalInputValue(dueAt),
+      dueAt: dueAtISO,
       estimatedMinutes: Number(estimatedMinutes) || 0,
       updatedAt: new Date().toISOString(),
-      subtasks,
-      repeat,
-      reminderMinutesBefore: Number(reminderMinutesBefore) || 0,
     });
-  };
-
-  const addSubtask = () => {
-    const text = newSubtask.trim();
-    if (!text) return;
-    setSubtasks(prev => [...prev, { id: generateId(), text, done: false }]);
-    setNewSubtask('');
-  };
-  const toggleSubtask = (id) => {
-    setSubtasks(prev => prev.map(s => s.id === id ? { ...s, done: !s.done } : s));
-  };
-  const removeSubtask = (id) => {
-    setSubtasks(prev => prev.filter(s => s.id !== id));
   };
 
   return (
     <form className="task-form" onSubmit={handleSubmit}>
-      <div className="form-grid">
-        <label className="field">
-          <span className="label">Title</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Math worksheet on fractions" required />
-        </label>
+      <label className="field">
+        <span className="label">Title</span>
+        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Math worksheet on fractions" required />
+      </label>
+      <div className="chips">
+        {suggestedSubjects.map(s => (
+          <button key={s} type="button" className="btn btn-ghost" onClick={()=>setSubject(s)}>{s}</button>
+        ))}
+      </div>
+      <div className="form-grid" style={{ marginTop: 8 }}>
         <label className="field">
           <span className="label">Subject</span>
           <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Math" />
         </label>
         <label className="field">
-          <span className="label">Due</span>
-          <input className="input" type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
-        </label>
-        <label className="field">
           <span className="label">Priority</span>
           <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
+            {priorities.map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
           </select>
         </label>
+      </div>
+
+      <div className="form-grid" style={{ marginTop: 8 }}>
         <label className="field">
-          <span className="label">Status</span>
-          <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="todo">To do</option>
-            <option value="in_progress">In progress</option>
-            <option value="done">Done</option>
-          </select>
+          <span className="label">Due date</span>
+          <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
         </label>
         <label className="field">
           <span className="label">Estimate (min)</span>
+          <div className="chips">
+            {quickDurations.map(m => (
+              <button key={m} type="button" className="btn btn-ghost" onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
+            ))}
+          </div>
           <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} />
         </label>
       </div>
-      <label className="field">
+
+      <label className="field" style={{ marginTop: 8 }}>
         <span className="label">Notes</span>
         <textarea className="input" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details, links, or requirements" />
       </label>
 
-      <div className="panel" style={{ marginTop: 10 }}>
-        <div className="panel-title">Subtasks</div>
-        <div className="subtasks">
-          {subtasks.map(s => (
-            <div className="subtask" key={s.id}>
-              <input type="checkbox" checked={s.done} onChange={() => toggleSubtask(s.id)} />
-              <span style={{ textDecoration: s.done ? 'line-through' : 'none' }}>{s.text}</span>
-              <button type="button" className="btn btn-ghost" onClick={() => removeSubtask(s.id)}>Remove</button>
-            </div>
-          ))}
-          <div className="subtask">
-            <input className="input" placeholder="New subtask" value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} />
-            <button type="button" className="btn" onClick={addSubtask}>Add</button>
-          </div>
-        </div>
-      </div>
-
-      <div className="form-grid" style={{ marginTop: 10 }}>
-        <label className="field">
-          <span className="label">Repeat</span>
-          <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
-            <option value="none">None</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-        </label>
-        <label className="field">
-          <span className="label">Reminder (min before)</span>
-          <input className="input" type="number" min="0" step="5" value={reminderMinutesBefore} onChange={(e) => setReminderMinutesBefore(e.target.value)} />
-        </label>
-      </div>
-
-      <div className="form-actions">
+      <div className="form-actions" style={{ flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
         <button type="submit" className="btn">Save task</button>
       </div>

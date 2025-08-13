@@ -915,6 +915,15 @@ export default function HomeworkApp() {
     setCanvasItems(prev => [...prev, { id: generateId(), type: 'shape', x: 60, y: 60, w: 200, h: 120, fill }]);
   };
 
+  const addEllipseItem = (fill = 'rgba(16,185,129,0.2)') => {
+    if (!selectedNoteId) return;
+    setCanvasItems(prev => [...prev, { id: generateId(), type: 'ellipse', x: 80, y: 80, w: 200, h: 140, fill, rx: 9999 }]);
+  };
+  const addLineItem = (stroke = 'rgba(124,58,237,0.9)') => {
+    if (!selectedNoteId) return;
+    setCanvasItems(prev => [...prev, { id: generateId(), type: 'line', x: 60, y: 60, w: 220, h: 2, stroke }]);
+  };
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -1022,6 +1031,7 @@ export default function HomeworkApp() {
         </div>
       ) : activeTab === 'notes' ? (
         <div className="notes-layout-left fade-in" onClick={() => setMenuOpen(false)} style={{ ['--notes-sidebar-w']: leftCollapsed ? '56px' : '260px' }}>
+          <button className="btn notes-left-toggle" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
           <aside className={`notes-left ${leftCollapsed ? 'collapsed' : ''}`}>
             <div className="notes-left-header">
               <button className="btn" onClick={() => { const nId = generateId(); const n={ id:nId, title:'New note', body:'', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }; setNotes(prev=>[n,...prev]); setSelectedNoteId(nId); }}>New</button>
@@ -1051,6 +1061,8 @@ export default function HomeworkApp() {
               <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
               <button className={`tool-btn ${tool==='text'?'tool-active':''}`} title="Text (T)" onClick={()=>setTool('text')}>T</button>
               <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
+              <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
+              <button className={`tool-btn ${tool==='line'?'tool-active':''}`} title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
               <button className={`tool-btn ${tool==='image'?'tool-active':''}`} title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
             </div>
             <div className="inspector-bar">
@@ -1070,10 +1082,10 @@ export default function HomeworkApp() {
               <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
               <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
             </div>
+            <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
             <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') handleCanvasClick(e); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
               {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
               {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
-              {selectedNoteId && <div className="canvas-status">{canvasItems.length} item(s)</div>}
               {canvasItems.map(it => (
                 <div key={it.id}
                   className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
@@ -1089,6 +1101,10 @@ export default function HomeworkApp() {
                     />
                   ) : it.type === 'image' ? (
                     <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                  ) : it.type === 'ellipse' ? (
+                    <div style={{ width: '100%', height: '100%', borderRadius: 9999, background: it.fill }} />
+                  ) : it.type === 'line' ? (
+                    <div style={{ width: '100%', height: 2, background: it.stroke }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
                   )}
@@ -1101,6 +1117,8 @@ export default function HomeworkApp() {
                 <div className="quick-menu" style={{ left: quickMenu.x, top: quickMenu.y }} onClick={(e)=>e.stopPropagation()}>
                   <div className="quick-item" onClick={() => { addTextItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add text</div>
                   <div className="quick-item" onClick={() => { addShapeItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add rectangle</div>
+                  <div className="quick-item" onClick={() => { addEllipseItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add ellipse</div>
+                  <div className="quick-item" onClick={() => { addLineItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add line</div>
                   <div className="quick-item" onClick={() => { triggerImageTool(); setQuickMenu({ open:false, x:0, y:0 }); }}>Import image</div>
                 </div>
               )}

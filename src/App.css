@@ -10,6 +10,19 @@
   --danger: #b91c1c;
 }
 
+/* Dark mode theme variables */
+:root[data-theme='dark'] {
+  --bg: #0d1117;
+  --surface: #111827;
+  --surface-2: #0b1220;
+  --text: #e5e7eb;
+  --text-dim: #9ca3af;
+  --border: #1f2937;
+  --accent: #60a5fa; /* blue-400 */
+  --accent-2: #a78bfa; /* violet-400 */
+  --danger: #ef4444;
+}
+
 html, body, #root { height: 100%; }
 
 body {
@@ -33,6 +46,12 @@ body {
 }
 .hw-title { font-weight: 700; letter-spacing: 0.2px; font-size: 18px; color: var(--text); }
 
+/* Header layout refinements for top bar */
+.hw-header { gap: 12px; }
+.hw-header .center { flex: 1; display: flex; justify-content: center; }
+.hw-header .center .search { width: clamp(220px, 45vw, 540px); }
+.hw-header .right { display: flex; gap: 8px; align-items: center; position: relative; }
+
 .hw-stats { display: flex; gap: 14px; }
 .stat { display: grid; place-items: start; }
 .stat-num { font-size: 16px; font-weight: 700; color: var(--accent); }
@@ -53,6 +72,15 @@ body {
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-ghost { background: var(--surface); border-color: var(--border); }
 .btn-danger { background: linear-gradient(180deg, rgba(239,68,68,0.16), rgba(239,68,68,0.08)); border-color: #7f1d1d; }
+
+/* Icon buttons and dropdown */
+.icon-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; cursor: pointer; color: var(--text); }
+.icon-btn:hover { filter: brightness(1.05); }
+.icon-btn.active { box-shadow: 0 0 0 2px rgba(37,99,235,0.25) inset; }
+.dropdown { position: absolute; top: calc(100% + 8px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 8px; box-shadow: var(--shadow-md); min-width: 220px; z-index: 20; }
+.dropdown .item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--text); }
+.dropdown .item:hover { background: var(--surface-2); }
+.dropdown hr { border: none; border-top: 1px solid var(--border); margin: 6px 4px; }
 
 .panel { margin: 0 18px 10px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
 .panel-title { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
@@ -206,6 +234,12 @@ body {
 /* Calendar weekday header */
 .weekday-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 0 18px 6px; }
 .weekday { text-align: center; font-size: 12px; color: var(--text-dim); }
+
+/* Simple animations */
+.fade-in { animation: fadeIn 180ms ease; }
+.slide-down { animation: slideDown 200ms ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 900px) {
   .hero-inner { grid-template-columns: 1fr; }

@@ -264,10 +264,12 @@ export default function HomeworkApp() {
   const [autoSyncSource, setAutoSyncSource] = useState(initialSettings.autoSyncSource || 'ics'); // ics | api
   const [autoSyncIntervalMin, setAutoSyncIntervalMin] = useState(initialSettings.autoSyncIntervalMin || 60);
   const [lastSyncStatus, setLastSyncStatus] = useState('');
+  const [darkMode, setDarkMode] = useState(Boolean(initialSettings.darkMode));
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin]);
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode]);
 
   useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
   useEffect(() => {
@@ -645,15 +647,37 @@ export default function HomeworkApp() {
   return (
     <div className="hw-app">
       <header className="hw-header">
-        <div className="hw-title">School Homework Planner <span className="badge">School-friendly</span></div>
-        <div className="hw-stats" style={{ display: 'none' }}></div>
+        <div className="hw-title">School Planner</div>
+        <div className="center">
+          <input className="input search" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div className="right">
+          <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" onClick={() => setActiveTab('planner')}>📋</button>
+          <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" onClick={() => { setActiveTab('calendar'); setView('calendar'); }}>📆</button>
+          <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
+          <button className="icon-btn" title="Add task" onClick={beginAdd}>＋</button>
+          <button className="icon-btn" title="More" onClick={() => setMenuOpen(o => !o)}>⋯</button>
+          {menuOpen && (
+            <div className="dropdown slide-down">
+              <div className="item" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</div>
+              <div className="item" onClick={() => { setMenuOpen(false); exportCsv(); }}>Export CSV</div>
+              <hr />
+              <label className="item file-label">
+                <span>Import JSON</span>
+                <input type="file" accept="application/json" onChange={(e) => { setMenuOpen(false); importJson(e); }} />
+              </label>
+              <div className="item" onClick={() => { setMenuOpen(false); setActiveTab('settings'); }}>Settings</div>
+            </div>
+          )}
+        </div>
       </header>
 
-      <section className="hero">
+      {/* Slim hero just with stats, minimal copy */}
+      <section className="hero fade-in">
         <div className="hero-inner">
           <div>
-            <h1 className="hero-title">Plan smarter. Learn better.</h1>
-            <p className="hero-subtitle">Clean, school-safe planner with calendar, subtasks, exports, and Canvas import.</p>
+            <h1 className="hero-title">Your day at a glance</h1>
+            <p className="hero-subtitle">Focus on what matters, with fewer clicks.</p>
           </div>
           <div className="stat-cards">
             <div className="stat-card">
@@ -661,11 +685,11 @@ export default function HomeworkApp() {
               <div className="stat-kpi">{stats.overdue}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-top"><span className="stat-icon">📅</span><span className="stat-label">Due today</span></div>
+              <div className="stat-top"><span className="stat-icon">📅</span><span className="stat-label">Today</span></div>
               <div className="stat-kpi">{stats.today}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-top"><span className="stat-icon">✅</span><span className="stat-label">Completed</span></div>
+              <div className="stat-top"><span className="stat-icon">✅</span><span className="stat-label">Done</span></div>
               <div className="stat-kpi">{stats.done}</div>
             </div>
             <div className="stat-card">
@@ -676,50 +700,9 @@ export default function HomeworkApp() {
         </div>
       </section>
 
-      <div className="tabs">
-        <button className={`tab ${activeTab==='planner' ? 'tab-active' : ''}`} onClick={() => setActiveTab('planner')}>Planner</button>
-        <button className={`tab ${activeTab==='calendar' ? 'tab-active' : ''}`} onClick={() => { setActiveTab('calendar'); setView('calendar'); }}>Calendar</button>
-        <button className={`tab ${activeTab==='settings' ? 'tab-active' : ''}`} onClick={() => setActiveTab('settings')}>Settings</button>
-      </div>
-
-      <div className="toolbar">
-        <div className="left">
-          <button className="btn btn-primary" onClick={beginAdd}>+ Add task</button>
-          <label className="btn btn-outline file-label">
-            Import
-            <input type="file" accept="application/json" onChange={importJson} />
-          </label>
-          <button className="btn btn-outline" onClick={exportJson}>Export JSON</button>
-          <button className="btn btn-outline" onClick={exportCsv}>Export CSV</button>
-          <button className="btn btn-outline" onClick={() => setShowInfo(s => !s)}>{showInfo ? 'Hide info' : 'For Schools & Privacy'}</button>
-        </div>
-        <div className="filters">
-          <input className="input search" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <select className="input" value={subjectFilter} onChange={(e) => setSubjectFilter(e.target.value)}>
-            <option value="all">All subjects</option>
-            {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select className="input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">All statuses</option>
-            <option value="todo">To do</option>
-            <option value="in_progress">In progress</option>
-            <option value="done">Done</option>
-          </select>
-          <select className="input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <option value="due">Sort: Due</option>
-            <option value="priority">Sort: Priority</option>
-            <option value="status">Sort: Status</option>
-            <option value="updated">Sort: Updated</option>
-          </select>
-          <select className="input" value={view} onChange={(e) => setView(e.target.value)}>
-            <option value="board">View: Board</option>
-            <option value="calendar">View: Calendar</option>
-          </select>
-        </div>
-      </div>
-
+      {/* remove bulky toolbar & keep tabs implicit from icons */}
       {showInfo && (
-        <div className="panel">
+        <div className="panel fade-in">
           <div className="panel-title">For Schools & Privacy</div>
           <ul style={{ margin: '0 0 0 16px', padding: 0 }}>
             <li>No accounts or logins; works offline in the browser.</li>
@@ -730,94 +713,15 @@ export default function HomeworkApp() {
         </div>
       )}
 
-      {upcomingSoon.length > 0 && (
-        <div className="banner">Upcoming soon: {upcomingSoon.map(t => t.title).join(', ')} <button className="btn btn-ghost" onClick={() => { setActiveTab('calendar'); setView('calendar'); }}>Open calendar</button></div>
-      )}
-
       {(isAdding || editingTask) && (
-        <div className="panel">
+        <div className="panel slide-down">
           <div className="panel-title">{editingTask ? 'Edit task' : 'New task'}</div>
           <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} />
         </div>
       )}
 
-      {/* Tab content */}
-      {activeTab === 'settings' ? (
-        <div className="settings">
-          <div className="panel">
-            <div className="panel-title">Canvas (ICS) Import</div>
-            <div className="settings-grid">
-              <label className="field wide">
-                <span className="label">Import assignments from an ICS calendar file</span>
-                <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const text = await file.text();
-                  const count = importIcsText(text, 'Canvas');
-                  e.target.value = '';
-                  alert(`Imported ${count} assignment(s) from ICS.`);
-                }} />
-                <div className="settings-note">Note: This import happens fully on-device. No network requests are made.</div>
-              </label>
-              <label className="field wide">
-                <span className="label">ICS feed URL (optional, auto-sync)</span>
-                <input className="input" placeholder="https://yourcanvas.example.edu/feeds/calendars/user_XXXX.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
-                <div className="settings-actions">
-                  <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
-                  <span className="settings-note">May be blocked by CORS depending on your Canvas server. If blocked, download and use file import above.</span>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-title">Canvas API (optional)</div>
-            <div className="settings-grid">
-              <label className="field">
-                <span className="label">Canvas base URL</span>
-                <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
-              </label>
-              <label className="field">
-                <span className="label">Access token</span>
-                <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
-              </label>
-              <div className="settings-actions">
-                <button className="btn" onClick={syncFromCanvasApi}>Sync now</button>
-                <span className="settings-note">Direct connection to your institution’s Canvas. No data leaves your browser.</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="panel">
-            <div className="panel-title">Auto-sync</div>
-            <div className="settings-grid">
-              <label className="field">
-                <span className="label">Enable auto-sync</span>
-                <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Source</span>
-                <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
-                  <option value="ics">ICS URL</option>
-                  <option value="api">Canvas API</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Interval (minutes)</span>
-                <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
-              </label>
-              <div className="field wide">
-                <span className="label">Last sync</span>
-                <div className="settings-note">{lastSyncStatus || '—'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : activeTab === 'calendar' ? (
-        <div className="calendar">
+      {activeTab === 'calendar' ? (
+        <div className="calendar fade-in">
           <div className="calendar-header">
             <button className="btn btn-ghost" onClick={() => setCalendarMonth(d => new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
             <div className="calendar-title">{calendarMonth.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</div>
@@ -844,60 +748,48 @@ export default function HomeworkApp() {
           </div>
         </div>
       ) : (
-        <>
-          <div className="timer-panel">
-            <div className="panel-title">Focus timer</div>
-            <div className="timer-row">
-              <span className="timer-time">{String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}</span>
-              <input className="input" type="number" value={timerMinutes} min="1" max="120" onChange={(e) => setTimerMinutes(Number(e.target.value)||25)} />
-              <button className="btn" onClick={() => setTimerRunning(true)} disabled={timerRunning || timeLeft===0}>Start</button>
-              <button className="btn btn-ghost" onClick={() => setTimerRunning(false)} disabled={!timerRunning}>Pause</button>
-              <button className="btn btn-ghost" onClick={() => { setTimerRunning(false); setTimeLeft(timerMinutes*60); }}>Reset</button>
+        <main className="board fade-in">
+          <section className="column">
+            <div className="column-title">Overdue</div>
+            <div className="list">
+              {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
+              {grouped.overdue.map(t => (
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
             </div>
-          </div>
-          <main className="board">
-            <section className="column">
-              <div className="column-title">Overdue</div>
-              <div className="list">
-                {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
-                {grouped.overdue.map(t => (
-                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-                ))}
-              </div>
-            </section>
-            <section className="column">
-              <div className="column-title">Today</div>
-              <div className="list">
-                {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
-                {grouped.today.map(t => (
-                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-                ))}
-              </div>
-            </section>
-            <section className="column">
-              <div className="column-title">Upcoming</div>
-              <div className="list">
-                {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
-                {grouped.upcoming.map(t => (
-                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-                ))}
-              </div>
-            </section>
-            <section className="column">
-              <div className="column-title">Completed</div>
-              <div className="list">
-                {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
-                {grouped.done.map(t => (
-                  <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-                ))}
-              </div>
-            </section>
-          </main>
-        </>
+          </section>
+          <section className="column">
+            <div className="column-title">Today</div>
+            <div className="list">
+              {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
+              {grouped.today.map(t => (
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
+            </div>
+          </section>
+          <section className="column">
+            <div className="column-title">Upcoming</div>
+            <div className="list">
+              {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
+              {grouped.upcoming.map(t => (
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
+            </div>
+          </section>
+          <section className="column">
+            <div className="column-title">Completed</div>
+            <div className="list">
+              {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
+              {grouped.done.map(t => (
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+              ))}
+            </div>
+          </section>
+        </main>
       )}
 
       <footer className="hw-footer">
-        <div>Privacy: No accounts, no tracking; your data stays on this device. Use "For Schools & Privacy" above for details.</div>
+        <div>Privacy: No accounts, no tracking; your data stays on this device.</div>
       </footer>
     </div>
   );

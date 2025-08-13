@@ -404,19 +404,26 @@ body {
 .modal-panel { max-height: 90vh; overflow: auto; }
 
 /* Assignment form layout improvements */
-.task-form { display: grid; gap: 14px; padding: 4px; }
-.form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
+.task-form { display: grid; gap: 16px; padding: 8px; }
+.form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
 .form-section .section-title { font-weight: 700; font-size: 13px; color: var(--text-dim); }
-.form-row { display: grid; gap: 10px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.form-row .field { grid-column: span 3; }
-.form-row .field.wide { grid-column: span 6; }
-.form-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 4px; }
-.task-form .chips { gap: 8px; }
-.task-form .btn, .task-form .input, .task-form select, .task-form textarea { min-height: 38px; }
+.form-row { display: grid; gap: 10px; grid-template-columns: 1fr; }
+.form-row .field { grid-column: span 1; }
+.form-row .field.wide { grid-column: span 1; }
+.schedule-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.schedule-grid .col { display: grid; gap: 12px; }
+.form-actions { display: flex; gap: 12px; justify-content: flex-end; padding-top: 4px; }
+.task-form .chips, .chip-group { display: flex; gap: 10px; flex-wrap: wrap; }
+.chip-btn { border-radius: 10px; padding: 8px 10px; }
+.chip-btn.active { box-shadow: 0 0 0 2px rgba(37,99,235,0.35) inset; border-color: var(--accent); filter: brightness(1.02); }
+
+/* Focus states */
+.input:focus-visible, select.input:focus-visible, textarea.input:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(37,99,235,0.35) inset; }
+.btn:focus-visible { outline: 2px solid rgba(37,99,235,0.35); outline-offset: 2px; }
 
 @media (max-width: 900px) {
   .form-row { grid-template-columns: 1fr; }
-  .form-row .field, .form-row .field.wide { grid-column: span 1; }
+  .schedule-grid { grid-template-columns: 1fr; }
   .task-form .btn { min-height: 44px; }
 }
 

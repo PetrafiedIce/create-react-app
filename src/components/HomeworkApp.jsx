@@ -214,58 +214,58 @@ function TaskForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
           <span className="label">Title</span>
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Math worksheet on fractions" required />
         </label>
-        <div className="chips">
-          {suggestedSubjects.map(s => (
-            <button key={s} type="button" className="btn btn-ghost" title={`Use subject: ${s}`} onClick={()=>setSubject(s)}>{s}</button>
-          ))}
-        </div>
-        <div className="form-row">
-          <label className="field">
-            <span className="label">Subject</span>
-            <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Math" />
-          </label>
-          <label className="field">
-            <span className="label">Priority</span>
-            <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
-              {priorities.map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
-            </select>
-          </label>
-        </div>
+        <label className="field">
+          <span className="label">Subject</span>
+          <select className="input" value={subject} onChange={(e) => setSubject(e.target.value)}>
+            <option value="">Select subject</option>
+            {suggestedSubjects.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="label">Priority</span>
+          <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
+            {priorities.map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
+          </select>
+        </label>
       </div>
 
       <div className="form-section">
         <div className="section-title">Schedule</div>
-        <div className="form-row">
-          <label className="field">
-            <span className="label">Due date</span>
-            <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
-          </label>
-          <label className="field">
-            <span className="label">Estimate (min)</span>
-            <div className="chips">
-              {quickDurations.map(m => (
-                <button key={m} type="button" className="btn btn-ghost" title={`${m} minutes`} onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
-              ))}
-            </div>
-            <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} placeholder="60" />
-          </label>
-        </div>
-        <div className="form-row">
-          <label className="field">
-            <span className="label">Repeat</span>
-            <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
-              {repeatOptions.map(r => <option key={r} value={r}>{r[0].toUpperCase()+r.slice(1)}</option>)}
-            </select>
-          </label>
-          <label className="field">
-            <span className="label">Reminder (min before)</span>
-            <div className="chips">
-              {reminderQuick.map(m => (
-                <button key={m} type="button" className="btn btn-ghost" title={`${m} minutes before`} onClick={()=>setReminderMinutes(m)}>{m}m</button>
-              ))}
-            </div>
-            <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e) => setReminderMinutes(e.target.value)} placeholder="10" />
-          </label>
+        <div className="schedule-grid">
+          <div className="col">
+            <label className="field">
+              <span className="label">Due date</span>
+              <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
+            </label>
+            <label className="field">
+              <span className="label">Repeat</span>
+              <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value)}>
+                {repeatOptions.map(r => <option key={r} value={r}>{r[0].toUpperCase()+r.slice(1)}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="col">
+            <label className="field">
+              <span className="label">Estimate (min)</span>
+              <div className="chip-group">
+                {quickDurations.map(m => (
+                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(estimatedMinutes)===m?'active':''}`} title={`${m} minutes`} onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
+                ))}
+              </div>
+              <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} placeholder="60" />
+            </label>
+            <label className="field">
+              <span className="label">Reminder (min before)</span>
+              <div className="chip-group">
+                {reminderQuick.map(m => (
+                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(reminderMinutes)===m?'active':''}`} title={`${m} minutes before`} onClick={()=>setReminderMinutes(m)}>{m}m</button>
+                ))}
+              </div>
+              <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e) => setReminderMinutes(e.target.value)} placeholder="10" />
+            </label>
+          </div>
         </div>
       </div>
 
@@ -1153,7 +1153,7 @@ export default function HomeworkApp() {
         <div className="modal" onClick={cancelForm}>
           <div className="panel modal-panel slide-down" onClick={(e)=>e.stopPropagation()}>
             <div className="panel-title">{editingTask ? 'Edit assignment' : 'New assignment'}</div>
-            <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} />
+            <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} subjectsList={subjects} />
           </div>
         </div>
       )}

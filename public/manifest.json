@@ -1,6 +1,6 @@
 {
-  "short_name": "Homework",
-  "name": "Homework Tracker",
+  "short_name": "School Planner",
+  "name": "School Homework Planner",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#0d1117",
-  "background_color": "#0d1117"
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff"
 }

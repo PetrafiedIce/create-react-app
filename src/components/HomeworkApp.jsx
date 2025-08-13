@@ -158,7 +158,7 @@ function InlineDatePicker({ valueISO, onChange }) {
   );
 }
 
-function TaskForm({ initialTask, onSave, onCancel }) {
+function TaskForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
   const [title, setTitle] = useState(initialTask.title ?? '');
   const [subject, setSubject] = useState(initialTask.subject ?? '');
   const [notes, setNotes] = useState(initialTask.notes ?? '');
@@ -170,7 +170,7 @@ function TaskForm({ initialTask, onSave, onCancel }) {
   const [reminderMinutes, setReminderMinutes] = useState(initialTask.reminderMinutesBefore ?? 0);
   const [subtasks, setSubtasks] = useState(Array.isArray(initialTask.subtasks) ? initialTask.subtasks : []);
 
-  const suggestedSubjects = ['Math','Science','English','History','Art','PE'];
+  const suggestedSubjects = subjectsList && subjectsList.length ? subjectsList : [];
   const quickDurations = [15, 30, 45, 60, 90];
   const priorities = ['low','medium','high'];
   const repeatOptions = ['none','daily','weekly','monthly'];
@@ -1065,7 +1065,7 @@ export default function HomeworkApp() {
         <div className="right">
           <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
           <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
-          <button className={`icon-btn ${activeTab==='notes' ? 'active' : ''}`} title="Notes" aria-pressed={activeTab==='notes'} onClick={() => setActiveTab('notes')}>📝</button>
+                      
           <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
           <button className="icon-btn" title="Add assignment" onClick={beginAdd}>＋</button>
           <button className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
@@ -1185,7 +1185,7 @@ export default function HomeworkApp() {
             })}
           </div>
         </div>
-      ) : activeTab === 'notes' ? (
+      ) : false ? (
         <div className="notes-layout-left fade-in" onClick={() => setMenuOpen(false)} style={{ ['--notes-sidebar-w']: leftCollapsed ? '56px' : '260px' }}>
           <button className="btn notes-left-toggle" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
           <aside className={`notes-left ${leftCollapsed ? 'collapsed' : ''}`}>

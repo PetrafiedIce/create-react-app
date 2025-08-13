@@ -1510,8 +1510,10 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
           </div>
         )}
         <div className="due-row">
-          <span className="due-label" title={dueDescriptor} style={{ whiteSpace: 'nowrap' }}>{dueDescriptor}</span>
-          <span className="due-date" title={dueDateFull} style={{ whiteSpace: 'nowrap' }}>{dueDateShort}</span>
+          <div className="due-wrap" tabIndex={0}>
+            <span className="due-label" style={{ whiteSpace: 'nowrap' }}>{dueDescriptor}</span>
+            {dueDateFull && <div className="due-tooltip">{dueDateFull}</div>}
+          </div>
         </div>
       </div>
       <div className="card-actions">

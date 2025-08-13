@@ -128,6 +128,12 @@ body {
 .due-date { max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
 .due-label { color: var(--accent-2); }
 
+/* Due tooltip */
+.due-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.due-tooltip { position: absolute; left: 50%; top: -8px; transform: translate(-50%, -100%) scale(0.98); opacity: 0; pointer-events: none; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; white-space: nowrap; box-shadow: var(--shadow-md); transition: opacity 150ms ease, transform 150ms ease; z-index: 5; }
+.due-wrap:hover .due-tooltip, .due-wrap:focus-within .due-tooltip { opacity: 1; transform: translate(-50%, -110%) scale(1); }
+.due-tooltip::after { content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); width: 10px; height: 10px; background: var(--surface); border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); transform: translateX(-50%) rotate(45deg); }
+
 .card-actions { display: flex; gap: 6px; align-items: stretch; flex-wrap: wrap; }
 .card-actions .btn { flex: 1 1 0; text-align: center; min-height: 36px; }
 @media (max-width: 1200px) {

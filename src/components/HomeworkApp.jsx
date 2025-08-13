@@ -56,9 +56,13 @@ function formatDueDescriptor(isoString) {
   return diffMs < 0 ? `Overdue by ${days}d` : `Due in ${days}d`;
 }
 
-function loadTasks() {
+function getTaskStorageKey(userId) {
+  return userId ? `${STORAGE_KEY}__${userId}` : STORAGE_KEY;
+}
+
+function loadTasks(key = STORAGE_KEY) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -68,9 +72,9 @@ function loadTasks() {
   }
 }
 
-function saveTasks(tasks) {
+function saveTasks(tasks, key = STORAGE_KEY) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(key, JSON.stringify(tasks));
   } catch {}
 }
 
@@ -285,7 +289,7 @@ function AssignmentForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
 }
 
 export default function HomeworkApp() {
-  const [tasks, setTasks] = useState(() => loadTasks());
+  const [tasks, setTasks] = useState(() => loadTasks(getTaskStorageKey((loadSettings().currentUserId)||'local')));
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
@@ -320,6 +324,7 @@ export default function HomeworkApp() {
   const [autoSyncIntervalMin, setAutoSyncIntervalMin] = useState(initialSettings.autoSyncIntervalMin || 60);
   const [lastSyncStatus, setLastSyncStatus] = useState('');
   const [darkMode, setDarkMode] = useState(Boolean(initialSettings.darkMode));
+  const [currentUserId, setCurrentUserId] = useState(initialSettings.currentUserId || 'local');
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
@@ -418,8 +423,8 @@ export default function HomeworkApp() {
   useEffect(() => { setMenuOpen(false); }, [activeTab]);
 
   useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode]);
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId]);
 
   useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
   useEffect(() => {
@@ -430,8 +435,8 @@ export default function HomeworkApp() {
   useEffect(() => { if (timeLeft === 0 && timerRunning) setTimerRunning(false); }, [timeLeft, timerRunning]);
 
   useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+    saveTasks(tasks, getTaskStorageKey(currentUserId));
+  }, [tasks, currentUserId]);
 
   // CSV export
   const exportCsv = () => {
@@ -1057,13 +1062,6 @@ export default function HomeworkApp() {
           <button type="button" className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
             <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</button>
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportCsv(); }}>Export CSV</button>
-              <hr />
-              <label className="item file-label" role="menuitem">
-                <span>Import JSON</span>
-                <input tabIndex={menuOpen ? 0 : -1} type="file" accept="application/json" onChange={(e) => { setMenuOpen(false); importJson(e); }} />
-              </label>
               <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</button>
             </div>
           )}
@@ -1158,13 +1156,23 @@ export default function HomeworkApp() {
             {monthDays.map((d) => {
               const key = d.toDateString();
               const dayTasks = tasksByDay.get(key) || [];
+              const fullLabel = `${d.toLocaleDateString()} — ${dayTasks.length} task(s)`;
               return (
-                <div className="calendar-cell" key={key}>
+                <div className="calendar-cell day-wrap" key={key} tabIndex={0}>
                   <div className="calendar-date">{d.getDate()}</div>
                   <div className="calendar-tasks">
                     {dayTasks.map(t => (
                       <div key={t.id} className={`cal-task ${t.status==='done' ? 'done' : ''}`}>{t.title}</div>
                     ))}
+                  </div>
+                  <div className="day-tooltip">
+                    <div className="day-tip-title">{fullLabel}</div>
+                    <div className="day-tip-list">
+                      {dayTasks.slice(0,6).map(t => (
+                        <div key={t.id} className="day-tip-item">• {t.title}</div>
+                      ))}
+                      {dayTasks.length > 6 && <div className="day-tip-more">+ {dayTasks.length - 6} more…</div>}
+                    </div>
                   </div>
                 </div>
               );
@@ -1395,15 +1403,19 @@ export default function HomeworkApp() {
                 </select>
               </label>
               <label className="field">
-                <span className="label">Density</span>
-                <select className="input" onChange={(e) => {
-                  const density = e.target.value; const root = document.documentElement;
-                  if (density === 'comfortable') root.style.setProperty('--border', '#e2e8f0');
-                  if (density === 'compact') root.style.setProperty('--border', '#cbd5e1');
-                }}>
-                  <option value="comfortable">Comfortable</option>
-                  <option value="compact">Compact</option>
-                </select>
+                <span className="label">Account (User ID)</span>
+                <input className="input" placeholder="local" value={initialSettings.currentUserId || 'local'} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
+              </label>
+              <label className="field wide">
+                <span className="label">Data</span>
+                <div className="settings-actions">
+                  <button className="btn" onClick={exportJson}>Export JSON</button>
+                  <button className="btn" onClick={exportCsv}>Export CSV</button>
+                  <label className="btn btn-ghost file-label">
+                    Import JSON
+                    <input type="file" accept="application/json" onChange={importJson} />
+                  </label>
+                </div>
               </label>
               <label className="field wide">
                 <span className="label">Import assignments from an ICS file (Canvas)</span>

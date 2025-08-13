@@ -466,3 +466,12 @@ body {
 @media (max-width: 900px) {
   .af-grid { grid-template-columns: 1fr; }
 }
+
+/* Calendar hover tooltip */
+.day-wrap { position: relative; }
+.day-tooltip { position: absolute; left: 50%; top: -8px; transform: translate(-50%, -100%) scale(0.98); opacity: 0; pointer-events: none; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; white-space: nowrap; box-shadow: var(--shadow-md); transition: opacity 150ms ease, transform 150ms ease; z-index: 6; min-width: 220px; }
+.day-wrap:hover .day-tooltip, .day-wrap:focus-within .day-tooltip { opacity: 1; transform: translate(-50%, -110%) scale(1); }
+.day-tooltip::after { content: ""; position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%) rotate(45deg); width: 10px; height: 10px; background: var(--surface); border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.day-tip-title { font-weight: 700; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+.day-tip-list { display: grid; gap: 4px; }
+.day-tip-item, .day-tip-more { font-size: 12px; color: var(--text); }

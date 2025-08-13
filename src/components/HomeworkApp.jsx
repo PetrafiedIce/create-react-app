@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 
 const STORAGE_KEY = 'homework_tracker_v1';
+const SETTINGS_KEY = 'homework_settings_v1';
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -68,6 +69,18 @@ function saveTasks(tasks) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
   } catch {}
+}
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+function saveSettings(s) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch {}
 }
 
 function defaultNewTask() {
@@ -241,6 +254,20 @@ export default function HomeworkApp() {
   const [timerMinutes, setTimerMinutes] = useState(25);
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [activeTab, setActiveTab] = useState('planner'); // planner | calendar | settings
+  // Canvas/Sync settings
+  const initialSettings = useMemo(() => loadSettings(), []);
+  const [canvasIcsUrl, setCanvasIcsUrl] = useState(initialSettings.canvasIcsUrl || '');
+  const [canvasBaseUrl, setCanvasBaseUrl] = useState(initialSettings.canvasBaseUrl || '');
+  const [canvasToken, setCanvasToken] = useState(initialSettings.canvasToken || '');
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(Boolean(initialSettings.autoSyncEnabled));
+  const [autoSyncSource, setAutoSyncSource] = useState(initialSettings.autoSyncSource || 'ics'); // ics | api
+  const [autoSyncIntervalMin, setAutoSyncIntervalMin] = useState(initialSettings.autoSyncIntervalMin || 60);
+  const [lastSyncStatus, setLastSyncStatus] = useState('');
+
+  useEffect(() => {
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin]);
 
   useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
   useEffect(() => {
@@ -482,6 +509,125 @@ export default function HomeworkApp() {
     return map;
   }, [monthDays, tasks]);
 
+  // Dedup helper
+  const hasTask = useCallback((title, dueAtIso) => {
+    const key = `${title}__${dueAtIso || ''}__Canvas`;
+    return tasks.some(t => `${t.title}__${t.dueAt || ''}__${t.subject || ''}` === key);
+  }, [tasks]);
+
+  // ICS import helper
+  const importIcsText = useCallback((text, subjectLabel = 'Canvas') => {
+    const lines = text.split(/\r?\n/);
+    const events = [];
+    let cur = {};
+    for (const raw of lines) {
+      const line = raw.startsWith(' ') ? (events.length ? (events[events.length-1]._lastLine += raw.slice(1)) : raw) : raw; // simple fold handling
+      if (line.startsWith('BEGIN:VEVENT')) cur = {};
+      else if (line.startsWith('SUMMARY:')) cur.summary = line.slice(8).trim();
+      else if (line.startsWith('DTSTART')) {
+        const parts = line.split(':');
+        cur.start = parts[1]?.trim();
+      } else if (line.startsWith('DTEND')) {
+        const parts = line.split(':');
+        cur.end = parts[1]?.trim();
+      } else if (line.startsWith('DESCRIPTION:')) cur.description = line.slice(12).trim();
+      else if (line.startsWith('END:VEVENT')) { events.push(cur); cur = {}; }
+    }
+    const parseIcsDate = (v) => {
+      if (!v) return null;
+      if (/^\d{8}T\d{6}Z$/.test(v)) return new Date(v).toISOString();
+      if (/^\d{8}T\d{6}$/.test(v)) {
+        const yyyy = v.slice(0,4), mm=v.slice(4,6), dd=v.slice(6,8), hh=v.slice(9,11), mi=v.slice(11,13), ss=v.slice(13,15);
+        const d = new Date(Number(yyyy), Number(mm)-1, Number(dd), Number(hh), Number(mi), Number(ss));
+        return d.toISOString();
+      }
+      if (/^\d{8}$/.test(v)) {
+        const yyyy = v.slice(0,4), mm=v.slice(4,6), dd=v.slice(6,8);
+        const d = new Date(Number(yyyy), Number(mm)-1, Number(dd), 17, 0, 0);
+        return d.toISOString();
+      }
+      return null;
+    };
+    const newTasks = events.map(ev => ({
+      id: generateId(),
+      title: ev.summary || 'Canvas Assignment',
+      subject: subjectLabel,
+      notes: (ev.description || '').replace(/\\n/g, '\n'),
+      priority: 'medium',
+      status: 'todo',
+      dueAt: parseIcsDate(ev.end) || parseIcsDate(ev.start) || null,
+      estimatedMinutes: 60,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      subtasks: [],
+      repeat: 'none',
+      reminderMinutesBefore: 0,
+    })).filter(t => !hasTask(t.title, t.dueAt));
+    if (newTasks.length > 0) setTasks(prev => [...newTasks, ...prev]);
+    return newTasks.length;
+  }, [hasTask]);
+
+  const syncFromIcsUrl = useCallback(async () => {
+    if (!canvasIcsUrl) { setLastSyncStatus('Set ICS URL'); return; }
+    try {
+      const res = await fetch(canvasIcsUrl, { mode: 'cors', credentials: 'omit' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const count = importIcsText(text, 'Canvas');
+      setLastSyncStatus(`ICS synced: ${count} new`);
+    } catch (e) {
+      setLastSyncStatus(`ICS sync failed: ${e.message}`);
+    }
+  }, [canvasIcsUrl, importIcsText]);
+
+  const syncFromCanvasApi = useCallback(async () => {
+    if (!canvasBaseUrl || !canvasToken) { setLastSyncStatus('Set Canvas URL and token'); return; }
+    try {
+      const base = canvasBaseUrl.replace(/\/$/, '');
+      const startISO = new Date(Date.now() - 7*86400000).toISOString();
+      const endISO = new Date(Date.now() + 30*86400000).toISOString();
+      const url = `${base}/api/v1/planner/items?start_date=${encodeURIComponent(startISO)}&end_date=${encodeURIComponent(endISO)}&per_page=100`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${canvasToken}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const items = await res.json();
+      const toAdd = [];
+      items.forEach((it) => {
+        const title = it.plannable?.name || it.title || 'Canvas Item';
+        const dueAt = it.plannable?.due_at || it.plannable?.all_day_date || it.plannable?.todo_date || null;
+        if (!hasTask(title, dueAt)) {
+          toAdd.push({
+            id: generateId(),
+            title,
+            subject: 'Canvas',
+            notes: it.plannable?.description || '',
+            priority: 'medium',
+            status: 'todo',
+            dueAt,
+            estimatedMinutes: 60,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            subtasks: [],
+            repeat: 'none',
+            reminderMinutesBefore: 0,
+          });
+        }
+      });
+      if (toAdd.length > 0) setTasks(prev => [...toAdd, ...prev]);
+      setLastSyncStatus(`API synced: ${toAdd.length} new`);
+    } catch (e) {
+      setLastSyncStatus(`API sync failed: ${e.message}`);
+    }
+  }, [canvasBaseUrl, canvasToken, hasTask]);
+
+  // Auto sync timer
+  useEffect(() => {
+    if (!autoSyncEnabled) return;
+    const fn = autoSyncSource === 'api' ? syncFromCanvasApi : syncFromIcsUrl;
+    fn();
+    const id = setInterval(() => fn(), Math.max(1, autoSyncIntervalMin) * 60 * 1000);
+    return () => clearInterval(id);
+  }, [autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, syncFromCanvasApi, syncFromIcsUrl]);
+
   return (
     <div className="hw-app">
       <header className="hw-header">
@@ -493,6 +639,12 @@ export default function HomeworkApp() {
           <div className="stat"><span className="stat-num">{stats.total}</span><span className="stat-label">Total</span></div>
         </div>
       </header>
+
+      <div className="tabs">
+        <button className={`tab ${activeTab==='planner' ? 'tab-active' : ''}`} onClick={() => setActiveTab('planner')}>Planner</button>
+        <button className={`tab ${activeTab==='calendar' ? 'tab-active' : ''}`} onClick={() => { setActiveTab('calendar'); setView('calendar'); }}>Calendar</button>
+        <button className={`tab ${activeTab==='settings' ? 'tab-active' : ''}`} onClick={() => setActiveTab('settings')}>Settings</button>
+      </div>
 
       <div className="toolbar">
         <div className="left">
@@ -543,7 +695,7 @@ export default function HomeworkApp() {
       )}
 
       {upcomingSoon.length > 0 && (
-        <div className="banner">Upcoming soon: {upcomingSoon.map(t => t.title).join(', ')} <button className="btn btn-ghost" onClick={() => setView('calendar')}>Open calendar</button></div>
+        <div className="banner">Upcoming soon: {upcomingSoon.map(t => t.title).join(', ')} <button className="btn btn-ghost" onClick={() => { setActiveTab('calendar'); setView('calendar'); }}>Open calendar</button></div>
       )}
 
       {(isAdding || editingTask) && (
@@ -553,18 +705,82 @@ export default function HomeworkApp() {
         </div>
       )}
 
-      <div className="timer-panel">
-        <div className="panel-title">Focus timer</div>
-        <div className="timer-row">
-          <span className="timer-time">{String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}</span>
-          <input className="input" type="number" value={timerMinutes} min="1" max="120" onChange={(e) => setTimerMinutes(Number(e.target.value)||25)} />
-          <button className="btn" onClick={() => setTimerRunning(true)} disabled={timerRunning || timeLeft===0}>Start</button>
-          <button className="btn btn-ghost" onClick={() => setTimerRunning(false)} disabled={!timerRunning}>Pause</button>
-          <button className="btn btn-ghost" onClick={() => { setTimerRunning(false); setTimeLeft(timerMinutes*60); }}>Reset</button>
-        </div>
-      </div>
+      {/* Tab content */}
+      {activeTab === 'settings' ? (
+        <div className="settings">
+          <div className="panel">
+            <div className="panel-title">Canvas (ICS) Import</div>
+            <div className="settings-grid">
+              <label className="field wide">
+                <span className="label">Import assignments from an ICS calendar file</span>
+                <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const text = await file.text();
+                  const count = importIcsText(text, 'Canvas');
+                  e.target.value = '';
+                  alert(`Imported ${count} assignment(s) from ICS.`);
+                }} />
+                <div className="settings-note">Note: This import happens fully on-device. No network requests are made.</div>
+              </label>
+              <label className="field wide">
+                <span className="label">ICS feed URL (optional, auto-sync)</span>
+                <input className="input" placeholder="https://yourcanvas.example.edu/feeds/calendars/user_XXXX.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
+                <div className="settings-actions">
+                  <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
+                  <span className="settings-note">May be blocked by CORS depending on your Canvas server. If blocked, download and use file import above.</span>
+                </div>
+              </label>
+            </div>
+          </div>
 
-      {view === 'calendar' ? (
+          <div className="panel">
+            <div className="panel-title">Canvas API (optional)</div>
+            <div className="settings-grid">
+              <label className="field">
+                <span className="label">Canvas base URL</span>
+                <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
+              </label>
+              <label className="field">
+                <span className="label">Access token</span>
+                <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
+              </label>
+              <div className="settings-actions">
+                <button className="btn" onClick={syncFromCanvasApi}>Sync now</button>
+                <span className="settings-note">Direct connection to your institution’s Canvas. No data leaves your browser.</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="panel-title">Auto-sync</div>
+            <div className="settings-grid">
+              <label className="field">
+                <span className="label">Enable auto-sync</span>
+                <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Source</span>
+                <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
+                  <option value="ics">ICS URL</option>
+                  <option value="api">Canvas API</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="label">Interval (minutes)</span>
+                <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
+              </label>
+              <div className="field wide">
+                <span className="label">Last sync</span>
+                <div className="settings-note">{lastSyncStatus || '—'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'calendar' ? (
         <div className="calendar">
           <div className="calendar-header">
             <button className="btn btn-ghost" onClick={() => setCalendarMonth(d => new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
@@ -589,44 +805,56 @@ export default function HomeworkApp() {
           </div>
         </div>
       ) : (
-        <main className="board">
-          <section className="column">
-            <div className="column-title">Overdue</div>
-            <div className="list">
-              {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
-              {grouped.overdue.map(t => (
-                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-              ))}
+        <>
+          <div className="timer-panel">
+            <div className="panel-title">Focus timer</div>
+            <div className="timer-row">
+              <span className="timer-time">{String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}</span>
+              <input className="input" type="number" value={timerMinutes} min="1" max="120" onChange={(e) => setTimerMinutes(Number(e.target.value)||25)} />
+              <button className="btn" onClick={() => setTimerRunning(true)} disabled={timerRunning || timeLeft===0}>Start</button>
+              <button className="btn btn-ghost" onClick={() => setTimerRunning(false)} disabled={!timerRunning}>Pause</button>
+              <button className="btn btn-ghost" onClick={() => { setTimerRunning(false); setTimeLeft(timerMinutes*60); }}>Reset</button>
             </div>
-          </section>
-          <section className="column">
-            <div className="column-title">Today</div>
-            <div className="list">
-              {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
-              {grouped.today.map(t => (
-                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-              ))}
-            </div>
-          </section>
-          <section className="column">
-            <div className="column-title">Upcoming</div>
-            <div className="list">
-              {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
-              {grouped.upcoming.map(t => (
-                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-              ))}
-            </div>
-          </section>
-          <section className="column">
-            <div className="column-title">Completed</div>
-            <div className="list">
-              {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
-              {grouped.done.map(t => (
-                <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
-              ))}
-            </div>
-          </section>
-        </main>
+          </div>
+          <main className="board">
+            <section className="column">
+              <div className="column-title">Overdue</div>
+              <div className="list">
+                {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
+                {grouped.overdue.map(t => (
+                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                ))}
+              </div>
+            </section>
+            <section className="column">
+              <div className="column-title">Today</div>
+              <div className="list">
+                {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
+                {grouped.today.map(t => (
+                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                ))}
+              </div>
+            </section>
+            <section className="column">
+              <div className="column-title">Upcoming</div>
+              <div className="list">
+                {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
+                {grouped.upcoming.map(t => (
+                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                ))}
+              </div>
+            </section>
+            <section className="column">
+              <div className="column-title">Completed</div>
+              <div className="list">
+                {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
+                {grouped.done.map(t => (
+                  <TaskCard key={t.id} task={t} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} />
+                ))}
+              </div>
+            </section>
+          </main>
+        </>
       )}
 
       <footer className="hw-footer">

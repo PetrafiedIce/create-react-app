@@ -962,6 +962,15 @@ export default function HomeworkApp() {
     return { x: it.x + it.w/2, y: it.y + it.h/2 };
   };
 
+  // Auto-collapse sidebar on mobile
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 700px)');
+    const apply = () => setLeftCollapsed(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -1095,13 +1104,13 @@ export default function HomeworkApp() {
           </aside>
           <div className="notes-canvas" onWheel={onWheelZoom}>
             <div className="canvas-toolbox">
-              <button className={`tool-btn ${tool==='select'?'tool-active':''}`} title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
-              <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
-              <button className={`tool-btn ${tool==='text'?'tool-active':''}`} title="Text (T)" onClick={()=>setTool('text')}>T</button>
-              <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
-              <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
-              <button className={`tool-btn ${tool==='line'?'tool-active':''}`} title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
-              <button className={`tool-btn ${tool==='image'?'tool-active':''}`} title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
+              <button className={`tool-btn ${tool==='select'?'tool-active':''}`} aria-label="Select" title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
+              <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} aria-label="Pan" title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
+              <button className={`tool-btn ${tool==='text'?'tool-active':''}`} aria-label="Text" title="Text (T)" onClick={()=>setTool('text')}>T</button>
+              <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} aria-label="Rectangle" title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
+              <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} aria-label="Ellipse" title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
+              <button className={`tool-btn ${tool==='line'?'tool-active':''}`} aria-label="Line" title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
+              <button className={`tool-btn ${tool==='image'?'tool-active':''}`} aria-label="Image" title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
             </div>
             <div className="inspector-bar">
               <div className="chip">Text:</div>

@@ -391,3 +391,16 @@ body {
 /* Overlay that does not scale */
 .canvas-overlay { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
 .canvas-overlay .quick-menu { pointer-events: auto; }
+
+/* Mobile-first adjustments */
+@media (max-width: 700px) {
+  .hero { display: none; }
+  .tool-btn, .zoom-btn, .icon-btn { width: 44px; height: 44px; }
+  .canvas-toolbox { left: 50%; top: auto; bottom: 10px; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px; border-radius: 14px; }
+  .inspector-bar { bottom: 64px; top: auto; transform: translateX(-50%); border-radius: 12px; padding: 8px; }
+  .canvas-zoom { right: 10px; bottom: 64px; }
+  .notes-canvas { height: 68vh; }
+  .quick-menu { padding: 8px; }
+  .quick-item { padding: 10px 12px; }
+  .notes-left-toggle { left: 10px; top: 10px; }
+}

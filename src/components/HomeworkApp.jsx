@@ -1049,12 +1049,12 @@ export default function HomeworkApp() {
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="right">
-          <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
-          <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
+          <button type="button" className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
+          <button type="button" className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
                       
-          <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
-          <button className="icon-btn" title="Add assignment" onClick={beginAdd}>＋</button>
-          <button className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
+          <button type="button" className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
+          <button type="button" className="icon-btn" title="Add assignment" onClick={beginAdd}>＋</button>
+          <button type="button" className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
             <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
               <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</button>

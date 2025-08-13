@@ -841,6 +841,16 @@ export default function HomeworkApp() {
     return map;
   }, [tasks]);
 
+  const filteredNotes = useMemo(() => {
+    const q = noteSearch.trim().toLowerCase();
+    if (!q) return notes;
+    const strip = (html) => String(html || '').replace(/<[^>]+>/g, ' ');
+    return notes.filter(n =>
+      String(n.title || '').toLowerCase().includes(q) ||
+      strip(n.body).toLowerCase().includes(q)
+    );
+  }, [notes, noteSearch]);
+
   const beginNewNote = () => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); setRteHtml(''); setActiveTab('notes'); };
   const saveNote = () => {
     const title = noteTitle.trim(); const body = (rteHtml || noteBody).trim(); if (!title && !body) return;
@@ -1023,6 +1033,21 @@ export default function HomeworkApp() {
     return () => mq.removeEventListener('change', apply);
   }, []);
 
+  useEffect(() => {
+    const onKey = (e) => {
+      if (activeTab !== 'notes' || notesMode !== 'editor') return;
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === 'b') { e.preventDefault(); document.execCommand('bold'); }
+      if (e.key.toLowerCase() === 'i') { e.preventDefault(); document.execCommand('italic'); }
+      if (e.key.toLowerCase() === 'u') { e.preventDefault(); document.execCommand('underline'); }
+      if (e.key.toLowerCase() === 's') { e.preventDefault(); saveNote(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeTab, notesMode, saveNote]);
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -1162,13 +1187,13 @@ export default function HomeworkApp() {
               <button className="btn btn-ghost" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
             </div>
             <div className="notes-left-body">
-              {notes.map(n => (
+              {filteredNotes.map(n => (
                 <div key={n.id} className={`notes-left-item ${selectedNoteId===n.id ? 'active':''}`} onClick={() => setSelectedNoteId(n.id)} onDoubleClick={() => { const title=prompt('Rename note', n.title||'')??n.title; setNotes(prev=>prev.map(x=>x.id===n.id?{...x,title,updatedAt:new Date().toISOString()}:x)); }}>
                   <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title||'Untitled'}</div>
                   {!leftCollapsed && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{new Date(n.updatedAt||n.createdAt).toLocaleString()}</div>}
                 </div>
               ))}
-              {notes.length===0 && <div className="empty">No notes yet. Click New.</div>}
+              {filteredNotes.length===0 && <div className="empty">No notes yet. Click New.</div>}
             </div>
             <div className="notes-left-footer">
               {!leftCollapsed && (

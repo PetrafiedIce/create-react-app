@@ -312,6 +312,11 @@ export default function HomeworkApp() {
   const [selectedNoteId, setSelectedNoteId] = useState(null);
   const [canvasItems, setCanvasItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState(null);
+  const [notesMode, setNotesMode] = useState('editor');
+  const [noteSearch, setNoteSearch] = useState('');
+  const [rteHtml, setRteHtml] = useState('');
+  const editorRef = useRef(null);
+  const imgInputRef = useRef(null);
   // Canvas/Sync settings
   const initialSettings = useMemo(() => loadSettings(), []);
   const [canvasIcsUrl, setCanvasIcsUrl] = useState(initialSettings.canvasIcsUrl || '');
@@ -836,19 +841,21 @@ export default function HomeworkApp() {
     return map;
   }, [tasks]);
 
-  const beginNewNote = () => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); setActiveTab('notes'); };
+  const beginNewNote = () => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); setRteHtml(''); setActiveTab('notes'); };
   const saveNote = () => {
-    const title = noteTitle.trim(); const body = noteBody.trim(); if (!title && !body) return;
+    const title = noteTitle.trim(); const body = (rteHtml || noteBody).trim(); if (!title && !body) return;
     if (editingNoteId) {
       setNotes(prev => prev.map(n => n.id === editingNoteId ? { ...n, title, body, updatedAt: new Date().toISOString() } : n));
     } else {
-      setNotes(prev => [{ id: generateId(), title, body, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...prev]);
+      const id = generateId();
+      setNotes(prev => [{ id, title, body, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...prev]);
+      setSelectedNoteId(id);
     }
-    setNoteTitle(''); setNoteBody('');
+    setNoteTitle(''); setNoteBody(''); setRteHtml('');
   };
   const editNote = (id) => {
     const n = notes.find(x => x.id === id); if (!n) return;
-    setEditingNoteId(id); setNoteTitle(n.title); setNoteBody(n.body); setActiveTab('notes');
+    setEditingNoteId(id); setNoteTitle(n.title); setNoteBody(n.body); setRteHtml(n.body || ''); setActiveTab('notes');
   };
   const deleteNote = (id) => { if (!window.confirm('Delete this note?')) return; setNotes(prev => prev.filter(n => n.id !== id)); };
 
@@ -1173,89 +1180,145 @@ export default function HomeworkApp() {
             </div>
           </aside>
           <div className="notes-canvas" onWheel={onWheelZoom}>
-            <div className="canvas-toolbox">
-              <button className={`tool-btn ${tool==='select'?'tool-active':''}`} aria-label="Select" title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
-              <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} aria-label="Pan" title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
-              <button className={`tool-btn ${tool==='text'?'tool-active':''}`} aria-label="Text" title="Text (T)" onClick={()=>setTool('text')}>T</button>
-              <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} aria-label="Rectangle" title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
-              <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} aria-label="Ellipse" title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
-              <button className={`tool-btn ${tool==='line'?'tool-active':''}`} aria-label="Line" title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
-              <button className={`tool-btn ${tool==='image'?'tool-active':''}`} aria-label="Image" title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
+            <div className="notes-topbar">
+              <div className="left">
+                <input className="input" placeholder="Search notes..." value={noteSearch} onChange={(e)=>setNoteSearch(e.target.value)} />
+              </div>
+              <div className="right">
+                <button className={`btn btn-ghost ${notesMode==='editor'?'active':''}`} onClick={()=>setNotesMode('editor')}>Editor</button>
+                <button className={`btn btn-ghost ${notesMode==='canvas'?'active':''}`} onClick={()=>setNotesMode('canvas')}>Canvas</button>
+              </div>
             </div>
-            <div className="inspector-bar">
-              <div className="chip">Text:</div>
-              <select className="input" value={textStyle.font} onChange={(e)=>applyTextStyle('font', e.target.value)}>
-                <option value="sans-serif">Sans</option>
-                <option value="serif">Serif</option>
-                <option value="monospace">Mono</option>
-              </select>
-              <input className="input" type="number" min="10" max="64" value={textStyle.size} onChange={(e)=>applyTextStyle('size', Number(e.target.value)||16)} />
-              <input className="input" type="color" value={textStyle.color} onChange={(e)=>applyTextStyle('color', e.target.value)} />
-              <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
-              <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
-            </div>
-            <div className="canvas-zoom">
-              <button className="zoom-btn" onClick={()=>setZoom(z=>Math.max(0.4, z-0.1))}>−</button>
-              <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
-              <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
-            </div>
-            <div className="canvas-overlay">
-              {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
-              {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
-              <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
-              {overlayQuick.open && selectedNoteId && tool==='select' && (
-                <div className="quick-menu" style={{ left: overlayQuick.x, top: overlayQuick.y }} onClick={(e)=>e.stopPropagation()}>
-                  <div className="quick-item" onClick={() => { addTextItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add text</div>
-                  <div className="quick-item" onClick={() => { addShapeItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add rectangle</div>
-                  <div className="quick-item" onClick={() => { addEllipseItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add ellipse</div>
-                  <div className="quick-item" onClick={() => { addLineItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add line</div>
-                  <div className="quick-item" onClick={() => { triggerImageTool(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Import image</div>
+
+            {notesMode === 'editor' ? (
+              <div className="rte-wrap">
+                <div className="rte-toolbar" role="toolbar" aria-label="Formatting">
+                  <button className="tool-btn" aria-label="Bold (Ctrl+B)" onClick={(e)=>{e.preventDefault(); document.execCommand('bold');}}>B</button>
+                  <button className="tool-btn" aria-label="Italic (Ctrl+I)" onClick={(e)=>{e.preventDefault(); document.execCommand('italic');}}><i>I</i></button>
+                  <button className="tool-btn" aria-label="Underline (Ctrl+U)" onClick={(e)=>{e.preventDefault(); document.execCommand('underline');}}><u>U</u></button>
+                  <button className="tool-btn" aria-label="Bulleted list" onClick={(e)=>{e.preventDefault(); document.execCommand('insertUnorderedList');}}>• List</button>
+                  <select className="input" aria-label="Font" onChange={(e)=>document.execCommand('fontName', false, e.target.value)}>
+                    <option value="">Font</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Times New Roman">Times</option>
+                    <option value="Courier New">Courier</option>
+                    <option value="Verdana">Verdana</option>
+                  </select>
+                  <select className="input" aria-label="Size" onChange={(e)=>document.execCommand('fontSize', false, e.target.value)}>
+                    <option value="3">Size</option>
+                    <option value="2">Small</option>
+                    <option value="3">Normal</option>
+                    <option value="4">Large</option>
+                    <option value="5">X-Large</option>
+                  </select>
+                  <button className="tool-btn" aria-label="Insert link" onClick={(e)=>{e.preventDefault(); const url=prompt('URL'); if(url) document.execCommand('createLink',false,url);}}>Link</button>
+                  <button className="tool-btn" aria-label="Insert image" onClick={(e)=>{e.preventDefault(); imgInputRef.current?.click();}}>Image</button>
+                  <input ref={imgInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ document.execCommand('insertImage', false, r.result); }; r.readAsDataURL(f); e.target.value=''; }} />
+                  <button className="tool-btn" aria-label="Undo (Ctrl+Z)" onClick={(e)=>{e.preventDefault(); document.execCommand('undo');}}>Undo</button>
+                  <button className="tool-btn" aria-label="Redo (Ctrl+Y)" onClick={(e)=>{e.preventDefault(); document.execCommand('redo');}}>Redo</button>
                 </div>
-              )}
-              {/* Render connections in overlay space */}
-              {connections.map(c => {
-                const a = getItemCenter(c.fromId); const b = getItemCenter(c.toId);
-                return <svg key={c.id} style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
-                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(37,99,235,0.9)" strokeWidth="2" />
-                </svg>;
-              })}
-              {drawingConn && (
-                <svg style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
-                  <line x1={getItemCenter(drawingConn.fromId).x} y1={getItemCenter(drawingConn.fromId).y} x2={drawingConn.x} y2={drawingConn.y} stroke="rgba(37,99,235,0.6)" strokeDasharray="6 4" strokeWidth="2" />
-                </svg>
-              )}
-            </div>
-            <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') openQuickAt(e.clientX, e.clientY); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
-              {canvasItems.map(it => (
-                <div key={it.id}
-                  className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
-                  style={{ left: it.x, top: it.y, width: it.w, height: it.h }}
-                  onPointerDown={(e) => onPointerDown(e, it.id, 'move')}
-                >
-                  {it.type === 'text' ? (
-                    <>
-                      <textarea
-                        className="canvas-text"
-                        value={it.text}
-                        onChange={(e) => updateText(it.id, e.target.value)}
-                        style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
-                      />
-                      <button className="btn btn-ghost" style={{ position: 'absolute', right: -36, top: '50%', transform: 'translateY(-50%)' }} onPointerDown={(e)=>startConnection(it.id, e)}>→</button>
-                    </>
-                  ) : it.type === 'image' ? (
-                    <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
-                  ) : it.type === 'ellipse' ? (
-                    <div style={{ width: '100%', height: '100%', borderRadius: 9999, background: it.fill }} />
-                  ) : it.type === 'line' ? (
-                    <div style={{ width: '100%', height: 2, background: it.stroke }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
+                <div
+                  ref={editorRef}
+                  className="rte-editor"
+                  contentEditable
+                  role="textbox"
+                  aria-multiline="true"
+                  placeholder="Write your notes here..."
+                  onInput={(e)=>{ const html=e.currentTarget.innerHTML; setRteHtml(html); if(selectedNoteId){ setNotes(prev=>prev.map(n=> n.id===selectedNoteId ? { ...n, body: html, updatedAt:new Date().toISOString() } : n)); }}}
+                  dangerouslySetInnerHTML={{ __html: (notes.find(n=>n.id===selectedNoteId)?.body)||rteHtml }}
+                />
+                <div className="rte-actions">
+                  <input className="input" placeholder="Note title" value={noteTitle} onChange={(e)=>setNoteTitle(e.target.value)} />
+                  <button className="btn" onClick={saveNote}>Save</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="canvas-toolbox">
+                  <button className={`tool-btn ${tool==='select'?'tool-active':''}`} aria-label="Select" title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
+                  <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} aria-label="Pan" title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
+                  <button className={`tool-btn ${tool==='text'?'tool-active':''}`} aria-label="Text" title="Text (T)" onClick={()=>setTool('text')}>T</button>
+                  <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} aria-label="Rectangle" title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
+                  <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} aria-label="Ellipse" title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
+                  <button className={`tool-btn ${tool==='line'?'tool-active':''}`} aria-label="Line" title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
+                  <button className={`tool-btn ${tool==='image'?'tool-active':''}`} aria-label="Image" title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
+                </div>
+                <div className="inspector-bar">
+                  <div className="chip">Text:</div>
+                  <select className="input" value={textStyle.font} onChange={(e)=>applyTextStyle('font', e.target.value)}>
+                    <option value="sans-serif">Sans</option>
+                    <option value="serif">Serif</option>
+                    <option value="monospace">Mono</option>
+                  </select>
+                  <input className="input" type="number" min="10" max="64" value={textStyle.size} onChange={(e)=>applyTextStyle('size', Number(e.target.value)||16)} />
+                  <input className="input" type="color" value={textStyle.color} onChange={(e)=>applyTextStyle('color', e.target.value)} />
+                  <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
+                  <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
+                </div>
+                <div className="canvas-zoom">
+                  <button className="zoom-btn" onClick={()=>setZoom(z=>Math.max(0.4, z-0.1))}>−</button>
+                  <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
+                  <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
+                </div>
+                <div className="canvas-overlay">
+                  {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
+                  {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
+                  <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
+                  {overlayQuick.open && selectedNoteId && tool==='select' && (
+                    <div className="quick-menu" style={{ left: overlayQuick.x, top: overlayQuick.y }} onClick={(e)=>e.stopPropagation()}>
+                      <div className="quick-item" onClick={() => { addTextItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add text</div>
+                      <div className="quick-item" onClick={() => { addShapeItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add rectangle</div>
+                      <div className="quick-item" onClick={() => { addEllipseItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add ellipse</div>
+                      <div className="quick-item" onClick={() => { addLineItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add line</div>
+                      <div className="quick-item" onClick={() => { triggerImageTool(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Import image</div>
+                    </div>
                   )}
-                  <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
+                  {connections.map(c => {
+                    const a = getItemCenter(c.fromId); const b = getItemCenter(c.toId);
+                    return <svg key={c.id} style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+                      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(37,99,235,0.9)" strokeWidth="2" />
+                    </svg>;
+                  })}
+                  {drawingConn && (
+                    <svg style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+                      <line x1={getItemCenter(drawingConn.fromId).x} y1={getItemCenter(drawingConn.fromId).y} x2={drawingConn.x} y2={drawingConn.y} stroke="rgba(37,99,235,0.6)" strokeDasharray="6 4" strokeWidth="2" />
+                    </svg>
+                  )}
                 </div>
-              ))}
-              {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />}
-            </div>
+                <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') openQuickAt(e.clientX, e.clientY); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
+                  {canvasItems.map(it => (
+                    <div key={it.id}
+                      className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
+                      style={{ left: it.x, top: it.y, width: it.w, height: it.h }}
+                      onPointerDown={(e) => onPointerDown(e, it.id, 'move')}
+                    >
+                      {it.type === 'text' ? (
+                        <>
+                          <textarea
+                            className="canvas-text"
+                            value={it.text}
+                            onChange={(e) => updateText(it.id, e.target.value)}
+                            style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
+                          />
+                          <button className="btn btn-ghost" style={{ position: 'absolute', right: -36, top: '50%', transform: 'translateY(-50%)' }} onPointerDown={(e)=>startConnection(it.id, e)}>→</button>
+                        </>
+                      ) : it.type === 'image' ? (
+                        <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                      ) : it.type === 'ellipse' ? (
+                        <div style={{ width: '100%', height: '100%', borderRadius: 9999, background: it.fill }} />
+                      ) : it.type === 'line' ? (
+                        <div style={{ width: '100%', height: 2, background: it.stroke }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
+                      )}
+                      <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
+                    </div>
+                  ))}
+                  {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />}
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : (

@@ -429,3 +429,16 @@ body {
 
 /* Modal refinements */
 .modal-panel { max-height: 90vh; overflow: auto; }
+
+/* Notes editor topbar */
+.notes-topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.notes-topbar .left { flex: 1; }
+.notes-topbar .right { display: flex; gap: 6px; }
+.notes-topbar .btn.active { box-shadow: 0 0 0 2px rgba(37,99,235,0.25) inset; }
+
+/* RTE */
+.rte-wrap { display: grid; gap: 8px; height: calc(72vh - 52px); }
+.rte-toolbar { display: flex; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 6px; }
+.rte-editor { flex: 1; min-height: 48vh; padding: 12px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; overflow: auto; }
+.rte-editor:empty:before { content: attr(placeholder); color: var(--text-dim); }
+.rte-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }

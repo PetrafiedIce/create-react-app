@@ -419,3 +419,12 @@ body {
   .form-row .field, .form-row .field.wide { grid-column: span 1; }
   .task-form .btn { min-height: 44px; }
 }
+
+/* Notes canvas spacing and centering overrides */
+.canvas-stage { position: relative; overflow: auto; padding: 12px; display: grid; align-content: start; justify-content: center; }
+.canvas-inner { position: relative; inset: auto; width: max-content; height: max-content; }
+.notes-left-header { padding: 10px; gap: 10px; }
+.notes-left-body { padding: 8px; gap: 8px; }
+@media (max-width: 900px) {
+  .canvas-stage { padding: 8px; }
+}

@@ -366,3 +366,20 @@ body {
 @media (max-width: 900px) {
   .notes-layout-left { grid-template-columns: 1fr; }
 }
+
+/* Miro-like toolbox and zoom controls */
+.canvas-toolbox { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); display: grid; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 6px; box-shadow: var(--shadow-md); z-index: 6; }
+.tool-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 8px; cursor: pointer; }
+.tool-btn:hover { filter: brightness(1.05); }
+.tool-active { outline: 2px solid rgba(37,99,235,0.35); }
+.canvas-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px; box-shadow: var(--shadow-md); z-index: 6; }
+.zoom-btn { width: 32px; height: 32px; display: inline-grid; place-items: center; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 999px; cursor: pointer; }
+
+/* Inspector bar */
+.inspector-bar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 8px; box-shadow: var(--shadow-md); z-index: 6; }
+
+/* Marquee selection */
+.marquee { position: absolute; border: 1px dashed rgba(37,99,235,0.6); background: rgba(37,99,235,0.1); pointer-events: none; z-index: 4; }
+
+/* Panning cursor */
+.pan-grabbing, .pan-grabbing * { cursor: grabbing !important; }

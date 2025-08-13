@@ -293,6 +293,50 @@ export default function HomeworkApp() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [quickMenu, setQuickMenu] = useState({ open: false, x: 0, y: 0 });
   const [textStyle, setTextStyle] = useState({ font: 'sans-serif', size: 16, color: '#111827' });
+  const [tool, setTool] = useState('select'); // select | pan | text | rect | image
+  const [zoom, setZoom] = useState(1);
+  const canvasRef = useRef(null);
+  const [marquee, setMarquee] = useState(null);
+  const onWheelZoom = (e) => {
+    if (!e.ctrlKey) return; e.preventDefault();
+    setZoom(z => Math.min(2, Math.max(0.4, z + (e.deltaY > 0 ? -0.1 : 0.1))));
+  };
+  const onCanvasPointerDown = (e) => {
+    if (tool === 'pan') {
+      document.body.classList.add('pan-grabbing');
+      dragState.current = { id: 'pan', lastX: e.clientX, lastY: e.clientY, mode: 'pan' };
+      window.addEventListener('pointermove', onCanvasPan);
+      window.addEventListener('pointerup', onCanvasPanEnd, { once: true });
+      return;
+    }
+    if (tool === 'select' && e.shiftKey) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+      setMarquee({ x, y, w: 0, h: 0 });
+      window.addEventListener('pointermove', onMarqueeMove);
+      window.addEventListener('pointerup', onMarqueeEnd, { once: true });
+      return;
+    }
+  };
+  const onCanvasPan = (e) => {
+    const s = dragState.current; if (s.mode !== 'pan') return;
+    const dx = e.clientX - s.lastX; const dy = e.clientY - s.lastY;
+    s.lastX = e.clientX; s.lastY = e.clientY;
+    const el = canvasRef.current; if (!el) return;
+    const cur = getComputedStyle(el).transform;
+    setCanvasTransform(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+  };
+  const onCanvasPanEnd = () => {
+    document.body.classList.remove('pan-grabbing');
+    window.removeEventListener('pointermove', onCanvasPan);
+  };
+  const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0 });
+  const onMarqueeMove = (e) => {
+    setMarquee(m => ({ ...m, w: e.clientX - (canvasRef.current?.getBoundingClientRect().left || 0) - m.x, h: e.clientY - (canvasRef.current?.getBoundingClientRect().top || 0) - m.y }));
+  };
+  const onMarqueeEnd = () => { setMarquee(null); window.removeEventListener('pointermove', onMarqueeMove); };
+
+  const triggerImageTool = () => { const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=(e)=>{ const f=inp.files?.[0]; if (f) addImageItem(f); }; inp.click(); };
 
   useEffect(() => { if (currentTaskId) localStorage.setItem(IN_PROGRESS_ID_KEY, currentTaskId); else localStorage.removeItem(IN_PROGRESS_ID_KEY); }, [currentTaskId]);
   useEffect(() => { saveNotes(notes); }, [notes]);
@@ -1001,14 +1045,15 @@ export default function HomeworkApp() {
               )}
             </div>
           </aside>
-          <div className="notes-canvas">
-            <div className="canvas-toolbar">
-              <button className="btn" onClick={addTextItem}>Add text</button>
-              <label className="btn btn-ghost file-label">
-                Add image
-                <input type="file" accept="image/*" onChange={(e) => { const f=e.target.files?.[0]; if (f) addImageItem(f); e.target.value=''; }} />
-              </label>
-              <button className="btn btn-ghost" onClick={() => addShapeItem()}>Add rectangle</button>
+          <div className="notes-canvas" onWheel={onWheelZoom}>
+            <div className="canvas-toolbox">
+              <button className={`tool-btn ${tool==='select'?'tool-active':''}`} title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
+              <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
+              <button className={`tool-btn ${tool==='text'?'tool-active':''}`} title="Text (T)" onClick={()=>setTool('text')}>T</button>
+              <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
+              <button className={`tool-btn ${tool==='image'?'tool-active':''}`} title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
+            </div>
+            <div className="inspector-bar">
               <div className="chip">Text:</div>
               <select className="input" value={textStyle.font} onChange={(e)=>applyTextStyle('font', e.target.value)}>
                 <option value="sans-serif">Sans</option>
@@ -1020,7 +1065,12 @@ export default function HomeworkApp() {
               <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
               <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
             </div>
-            <div className="canvas-inner" onDoubleClick={handleCanvasDoubleClick} onClick={handleCanvasClick}>
+            <div className="canvas-zoom">
+              <button className="zoom-btn" onClick={()=>setZoom(z=>Math.max(0.4, z-0.1))}>−</button>
+              <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
+              <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
+            </div>
+            <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') handleCanvasClick(e); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
               {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
               {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
               {selectedNoteId && <div className="canvas-status">{canvasItems.length} item(s)</div>}
@@ -1046,14 +1096,12 @@ export default function HomeworkApp() {
                   <button className="btn btn-ghost" style={{ position: 'absolute', top: -34, right: 0 }} onClick={(e) => { e.stopPropagation(); removeItem(it.id); }}>Remove</button>
                 </div>
               ))}
-              {quickMenu.open && selectedNoteId && (
+              {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />}
+              {quickMenu.open && selectedNoteId && tool==='select' && (
                 <div className="quick-menu" style={{ left: quickMenu.x, top: quickMenu.y }} onClick={(e)=>e.stopPropagation()}>
                   <div className="quick-item" onClick={() => { addTextItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add text</div>
                   <div className="quick-item" onClick={() => { addShapeItem(); setQuickMenu({ open:false, x:0, y:0 }); }}>Add rectangle</div>
-                  <label className="quick-item file-label">
-                    Import image
-                    <input type="file" accept="image/*" onChange={(e)=>{ const f=e.target.files?.[0]; if (f) addImageItem(f); setQuickMenu({ open:false, x:0, y:0 }); e.target.value=''; }} />
-                  </label>
+                  <div className="quick-item" onClick={() => { triggerImageTool(); setQuickMenu({ open:false, x:0, y:0 }); }}>Import image</div>
                 </div>
               )}
             </div>

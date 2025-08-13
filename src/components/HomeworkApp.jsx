@@ -179,6 +179,7 @@ export default function HomeworkApp() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [sortBy, setSortBy] = useState('due');
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     saveTasks(tasks);
@@ -346,7 +347,7 @@ export default function HomeworkApp() {
   return (
     <div className="hw-app">
       <header className="hw-header">
-        <div className="hw-title">Homework Tracker</div>
+        <div className="hw-title">School Homework Planner <span className="badge">School-friendly</span></div>
         <div className="hw-stats">
           <div className="stat"><span className="stat-num">{stats.overdue}</span><span className="stat-label">Overdue</span></div>
           <div className="stat"><span className="stat-num">{stats.today}</span><span className="stat-label">Due today</span></div>
@@ -363,6 +364,7 @@ export default function HomeworkApp() {
             <input type="file" accept="application/json" onChange={importJson} />
           </label>
           <button className="btn btn-ghost" onClick={exportJson}>Export</button>
+          <button className="btn btn-ghost" onClick={() => setShowInfo(s => !s)}>{showInfo ? 'Hide info' : 'For Schools & Privacy'}</button>
         </div>
         <div className="filters">
           <input className="input search" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -384,6 +386,18 @@ export default function HomeworkApp() {
           </select>
         </div>
       </div>
+
+      {showInfo && (
+        <div className="panel">
+          <div className="panel-title">For Schools & Privacy</div>
+          <ul style={{ margin: '0 0 0 16px', padding: 0 }}>
+            <li>No accounts or logins; works offline in the browser.</li>
+            <li>No ads, no tracking, and no third‑party analytics. All data stays on this device (local storage).</li>
+            <li>No social features or external content. Import/Export is local JSON only.</li>
+            <li>Designed for classrooms: keyboard‑friendly, readable, and distraction‑free.</li>
+          </ul>
+        </div>
+      )}
 
       {(isAdding || editingTask) && (
         <div className="panel">
@@ -432,7 +446,7 @@ export default function HomeworkApp() {
       </main>
 
       <footer className="hw-footer">
-        <div>Pro tip: break large assignments into smaller tasks and set earlier due times.</div>
+        <div>Privacy: No accounts, no tracking; your data stays on this device. Use "For Schools & Privacy" above for details.</div>
       </footer>
     </div>
   );

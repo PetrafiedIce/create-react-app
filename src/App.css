@@ -606,3 +606,8 @@ body {
 
 /* Remove collapse button (legacy) */
 .collapse-btn { display: none; }
+
+.timer-panel { width: 320px; min-height: 96px; }
+.timer-panel.dragging, body.timer-grabbing { user-select: none; cursor: grabbing; }
+.timer-panel .timer-circle { flex: 0 0 auto; }
+.timer-panel .timer-content { min-width: 0; }

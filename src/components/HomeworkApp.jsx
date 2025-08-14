@@ -1157,6 +1157,7 @@ export default function HomeworkApp() {
   const [timerPos, setTimerPos] = useState(defaultTimerPos);
   const timerRef = useRef(null);
   const dragRef = useRef({ active: false, dx: 0, dy: 0 });
+  const [timerDragging, setTimerDragging] = useState(false);
 
   // Live clock for header (top-left)
   const [now, setNow] = useState(() => new Date());
@@ -1193,12 +1194,16 @@ export default function HomeworkApp() {
 
   const onTimerPointerDown = (e) => {
     if (e.button !== 0) return;
+    if ((e.target.closest && e.target.closest('input,button,select,textarea'))) return;
+    e.preventDefault();
     const rect = timerRef.current?.getBoundingClientRect();
     const startX = e.clientX;
     const startY = e.clientY;
     const offX = startX - (rect?.left || 0);
     const offY = startY - (rect?.top || 0);
     dragRef.current = { active: true, dx: offX, dy: offY };
+    setTimerDragging(true);
+    document.body.classList.add('timer-grabbing');
     window.addEventListener('pointermove', onTimerPointerMove);
     window.addEventListener('pointerup', onTimerPointerUp, { once: true });
   };
@@ -1212,6 +1217,8 @@ export default function HomeworkApp() {
   };
   const onTimerPointerUp = () => {
     dragRef.current.active = false;
+    setTimerDragging(false);
+    document.body.classList.remove('timer-grabbing');
     window.removeEventListener('pointermove', onTimerPointerMove);
   };
 
@@ -1581,7 +1588,7 @@ export default function HomeworkApp() {
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
 
       {/* Bottom-left timer panel */}
-      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : ''}`} role="region" aria-label="Focus timer" style={{ left: `${timerPos.x}px`, top: `${timerPos.y}px` }} onPointerDown={onTimerPointerDown} onClick={(e)=>{ e.stopPropagation(); if (timerCollapsed) setTimerCollapsed(false); }}>
+      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : ''} ${timerDragging ? 'dragging' : ''}`} role="region" aria-label="Focus timer" style={{ left: `${timerPos.x}px`, top: `${timerPos.y}px` }} onPointerDown={onTimerPointerDown} onClick={(e)=>{ e.stopPropagation(); if (timerCollapsed) setTimerCollapsed(false); }}>
         {(() => {
           const total = Math.max(1, timerMinutes * 60);
           const progressDeg = Math.min(360, Math.max(0, (1 - (timeLeft / total)) * 360));

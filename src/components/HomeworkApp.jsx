@@ -1099,6 +1099,8 @@ export default function HomeworkApp() {
     } catch (e) { setAuthStatus(e.message); }
   }, []);
 
+  const [settingsTab, setSettingsTab] = useState('general'); // general | account | data | integrations | sync
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -1463,92 +1465,117 @@ export default function HomeworkApp() {
         <div className="modal" onClick={() => setSettingsOpen(false)}>
           <div ref={settingsRef} className="panel modal-panel slide-down" role="dialog" aria-modal="true" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
             <div className="panel-title">Settings</div>
+            <div className="settings-tabs">
+              <button className={`settings-tab ${settingsTab==='general'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('general')}>General</button>
+              <button className={`settings-tab ${settingsTab==='account'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('account')}>Account</button>
+              <button className={`settings-tab ${settingsTab==='data'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('data')}>Data</button>
+              <button className={`settings-tab ${settingsTab==='integrations'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('integrations')}>Integrations</button>
+              <button className={`settings-tab ${settingsTab==='sync'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('sync')}>Sync</button>
+            </div>
             <div className="settings-grid">
-              <label className="field">
-                <span className="label">Theme</span>
-                <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Account (User ID)</span>
-                <input className="input" placeholder="local" value={currentUserId} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
-              </label>
-              <label className="field wide">
-                <span className="label">Sign in (Supabase)</span>
-                <div className="settings-actions">
-                  <input className="input" placeholder="Email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} />
-                  <input className="input" type="password" placeholder="Password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} />
-                  <button className="btn" onClick={supaSignUp}>Sign up</button>
-                  <button className="btn" onClick={supaSignIn}>Sign in</button>
-                  <button className="btn btn-ghost" onClick={supaSignOut}>Sign out</button>
-                </div>
-                <div className="settings-note">{authStatus || (supabase ? '—' : 'Supabase not configured')}</div>
-              </label>
-              <div className="settings-actions">
-                <button className="btn" onClick={supaSyncTasks}>Sync tasks to cloud</button>
-              </div>
-              <label className="field wide">
-                <span className="label">Data</span>
-                <div className="settings-actions">
-                  <button className="btn" onClick={exportJson}>Export JSON</button>
-                  <button className="btn" onClick={exportCsv}>Export CSV</button>
-                  <label className="btn btn-ghost file-label">
-                    Import JSON
-                    <input type="file" accept="application/json" onChange={importJson} />
+              {settingsTab === 'general' && (
+                <>
+                  <label className="field">
+                    <span className="label">Theme</span>
+                    <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
                   </label>
-                </div>
-              </label>
-              <label className="field wide">
-                <span className="label">Import assignments from an ICS file (Canvas)</span>
-                <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
-                  const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
-                  const count = importIcsText(text, 'Canvas'); e.target.value = ''; alert(`Imported ${count} assignment(s).`);
-                }} />
-              </label>
-              <label className="field wide">
-                <span className="label">ICS feed URL</span>
-                <input className="input" placeholder="https://yourcanvas.example.edu/feeds/...user.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
-                <div className="settings-actions">
-                  <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
-                  <span className="settings-note">May be blocked by CORS. If blocked, download and import file above.</span>
-                </div>
-              </label>
-              <label className="field">
-                <span className="label">Canvas base URL</span>
-                <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
-              </label>
-              <label className="field">
-                <span className="label">Access token</span>
-                <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
-              </label>
-              <div className="settings-actions">
-                <button className="btn" onClick={syncFromCanvasApi}>Sync via API</button>
-                <span className="settings-note">Direct connection to Canvas. Nothing leaves your browser.</span>
-              </div>
-              <label className="field">
-                <span className="label">Auto-sync</span>
-                <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Source</span>
-                <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
-                  <option value="ics">ICS URL</option>
-                  <option value="api">Canvas API</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Interval (minutes)</span>
-                <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
-              </label>
-              <div className="field wide">
-                <span className="label">Last sync</span>
-                <div className="settings-note">{lastSyncStatus || '—'}</div>
-              </div>
+                </>
+              )}
+              {settingsTab === 'account' && (
+                <>
+                  <label className="field">
+                    <span className="label">Account (User ID)</span>
+                    <input className="input" placeholder="local" value={currentUserId} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
+                  </label>
+                  <label className="field wide">
+                    <span className="label">Sign in (Supabase)</span>
+                    <div className="settings-actions">
+                      <input className="input" placeholder="Email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} />
+                      <input className="input" type="password" placeholder="Password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} />
+                      <button className="btn" onClick={supaSignUp}>Sign up</button>
+                      <button className="btn" onClick={supaSignIn}>Sign in</button>
+                      <button className="btn btn-ghost" onClick={supaSignOut}>Sign out</button>
+                    </div>
+                    <div className="settings-note">{authStatus || (supabase ? '—' : 'Supabase not configured')}</div>
+                  </label>
+                </>
+              )}
+              {settingsTab === 'data' && (
+                <>
+                  <label className="field wide">
+                    <span className="label">Data</span>
+                    <div className="settings-actions">
+                      <button className="btn" onClick={exportJson}>Export JSON</button>
+                      <button className="btn" onClick={exportCsv}>Export CSV</button>
+                      <label className="btn btn-ghost file-label">
+                        Import JSON
+                        <input type="file" accept="application/json" onChange={importJson} />
+                      </label>
+                    </div>
+                  </label>
+                </>
+              )}
+              {settingsTab === 'integrations' && (
+                <>
+                  <label className="field wide">
+                    <span className="label">Import assignments from an ICS file (Canvas)</span>
+                    <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
+                      const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
+                      const count = importIcsText(text, 'Canvas'); e.target.value = ''; alert(`Imported ${count} assignment(s).`);
+                    }} />
+                  </label>
+                  <label className="field">
+                    <span className="label">ICS feed URL</span>
+                    <input className="input" placeholder="https://yourcanvas.example.edu/feeds/...user.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
+                    <div className="settings-actions">
+                      <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
+                      <span className="settings-note">May be blocked by CORS. If blocked, download and import file above.</span>
+                    </div>
+                  </label>
+                  <label className="field">
+                    <span className="label">Canvas base URL</span>
+                    <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
+                  </label>
+                  <label className="field">
+                    <span className="label">Access token</span>
+                    <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
+                  </label>
+                </>
+              )}
+              {settingsTab === 'sync' && (
+                <>
+                  <label className="field">
+                    <span className="label">Auto-sync</span>
+                    <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
+                      <option value="off">Off</option>
+                      <option value="on">On</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="label">Source</span>
+                    <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
+                      <option value="ics">ICS URL</option>
+                      <option value="api">Canvas API</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="label">Interval (minutes)</span>
+                    <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
+                  </label>
+                  <div className="settings-actions">
+                    <button className="btn" onClick={syncFromCanvasApi}>Sync via API</button>
+                    <button className="btn" onClick={supaSyncTasks}>Sync tasks to cloud</button>
+                    <span className="settings-note">Direct connection to Canvas or Supabase. Nothing leaves your browser except the intended API calls.</span>
+                  </div>
+                  <div className="field wide">
+                    <span className="label">Last sync</span>
+                    <div className="settings-note">{lastSyncStatus || '—'}</div>
+                  </div>
+                </>
+              )}
               <div className="settings-actions">
                 <button className="btn btn-ghost" onClick={() => setSettingsOpen(false)}>Close</button>
               </div>
@@ -1569,7 +1596,6 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
   const dueDescriptor = formatDueDescriptor(task.dueAt);
   const dueDate = task.dueAt ? new Date(task.dueAt) : null;
   const dueDateFull = dueDate ? dueDate.toLocaleString() : 'No date';
-  const dueDateShort = dueDate ? `${dueDate.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}/...` : 'No date';
   const isOverdue = task.status !== 'done' && dueDate && dueDate < new Date();
   const subjectChipStyle = {
     borderColor: '#e2e8f0',

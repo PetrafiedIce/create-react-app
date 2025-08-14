@@ -190,6 +190,12 @@ body {
 .settings-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .settings-note { font-size: 12px; color: var(--text-dim); }
 
+/* Settings tabs */
+.settings-tabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--surface-2); border-radius: 12px 12px 0 0; }
+.settings-tab { background: transparent; border: 1px solid transparent; color: var(--text-dim); padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+.settings-tab:hover { color: var(--text); background: var(--surface); }
+.settings-tab-active { color: var(--text); background: var(--surface); border-color: var(--border); }
+
 /* Responsive tweaks */
 @media (max-width: 1200px) {
   .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }

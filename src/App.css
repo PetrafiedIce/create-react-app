@@ -189,6 +189,9 @@ body {
 .timer-panel.dragging, body.timer-grabbing { user-select: none; cursor: grabbing; }
 .timer-panel .timer-circle { flex: 0 0 auto; }
 .timer-panel .timer-content { min-width: 0; }
+.timer-panel.expanded { border-color: var(--primary); }
+.timer-circle { pointer-events: none; }
+.timer-content, .timer-actions, .timer-edit-row, .timer-content * { pointer-events: auto; }
 
 .banner { margin: 0 18px 10px; padding: 12px; background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.25); color: var(--text); border-radius: 10px; font-size: 13px; }
 .banner .btn { margin-left: 8px; }

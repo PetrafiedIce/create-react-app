@@ -1155,7 +1155,7 @@ export default function HomeworkApp() {
   }, []);
   const [timerPos, setTimerPos] = useState(defaultTimerPos);
   const timerRef = useRef(null);
-  const dragRef = useRef({ active: false, dx: 0, dy: 0 });
+  const dragRef = useRef({ active: false, dx: 0, dy: 0, startX: 0, startY: 0, moved: false, downOnControl: false });
   const [timerDragging, setTimerDragging] = useState(false);
   const rafRef = useRef(0);
   const latestPosRef = useRef(timerPos);
@@ -1202,14 +1202,15 @@ export default function HomeworkApp() {
 
   const onTimerPointerDown = (e) => {
     if (e.button !== 0) return;
-    if ((e.target.closest && e.target.closest('input,button,select,textarea'))) return;
+    const downOnControl = !!(e.target.closest && e.target.closest('input,button,select,textarea'));
+    if (downOnControl) return;
     e.preventDefault();
     const rect = timerRef.current?.getBoundingClientRect();
     const startX = e.clientX;
     const startY = e.clientY;
     const offX = startX - (rect?.left || 0);
     const offY = startY - (rect?.top || 0);
-    dragRef.current = { active: true, dx: offX, dy: offY };
+    dragRef.current = { active: true, dx: offX, dy: offY, startX, startY, moved: false, downOnControl };
     setTimerDragging(true);
     document.body.classList.add('timer-grabbing');
     try { timerRef.current?.setPointerCapture?.(e.pointerId); } catch {}
@@ -1218,6 +1219,8 @@ export default function HomeworkApp() {
   };
   const onTimerPointerMove = (e) => {
     if (!dragRef.current.active) return;
+    const movedDist = Math.abs(e.clientX - dragRef.current.startX) + Math.abs(e.clientY - dragRef.current.startY);
+    if (!dragRef.current.moved && movedDist > 6) dragRef.current.moved = true;
     const rawX = e.clientX - dragRef.current.dx;
     const rawY = e.clientY - dragRef.current.dy;
     const w = timerRef.current?.offsetWidth || 320;
@@ -1239,6 +1242,10 @@ export default function HomeworkApp() {
     document.body.classList.remove('timer-grabbing');
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
     window.removeEventListener('pointermove', onTimerPointerMove);
+    // Toggle expand/collapse if it was a click (no drag)
+    if (!dragRef.current.moved && !dragRef.current.downOnControl) {
+      setTimerCollapsed(c => !c);
+    }
   };
 
   return (
@@ -1607,13 +1614,13 @@ export default function HomeworkApp() {
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
 
       {/* Bottom-left timer panel */}
-      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : ''} ${timerDragging ? 'dragging' : ''}`} role="region" aria-label="Focus timer" style={{ transform: `translate(${timerPos.x}px, ${timerPos.y}px)` }} onPointerDown={onTimerPointerDown} onClick={(e)=>{ e.stopPropagation(); }}>
+      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : 'expanded'} ${timerDragging ? 'dragging' : ''}`} role="region" aria-label="Focus timer" style={{ transform: `translate(${timerPos.x}px, ${timerPos.y}px)` }} onPointerDown={onTimerPointerDown}>
         {(() => {
           const total = Math.max(1, timerMinutes * 60);
           const progressDeg = Math.min(360, Math.max(0, (1 - (timeLeft / total)) * 360));
           return (
             <>
-              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }} onClick={(e)=>{ e.stopPropagation(); setTimerCollapsed(true); }}>
+              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }}>
                 <div className="timer-time" aria-live="polite">
                   {String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}
                 </div>
@@ -1621,7 +1628,6 @@ export default function HomeworkApp() {
               {!timerCollapsed && (
                 <div className="timer-content">
                   <div className="timer-actions">
-                    <button type="button" className="icon-btn" title="Expand panel" onClick={(e)=>{ e.stopPropagation(); setTimerCollapsed(false); }}>▣</button>
                     <button type="button" className="icon-btn" title="Fullscreen" onClick={(e)=>{ e.stopPropagation(); setTimerOpen(true); }}>⤢</button>
                     <button type="button" className="icon-btn" title={timerRunning ? 'Pause' : 'Start'} onClick={() => setTimerRunning(r => !r)}>{timerRunning ? '⏸️' : '▶️'}</button>
                     <button type="button" className="icon-btn" title="Reset" onClick={() => setTimeLeft(timerMinutes * 60)}>⟲</button>
@@ -1634,12 +1640,6 @@ export default function HomeworkApp() {
                   <div className="timer-edit-row">
                     <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>{ const v=Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)); setTimerMinutes(v); setTimeLeft(v*60); }} aria-label="Minutes" placeholder="Minutes" style={{ width: 96 }} />
                   </div>
-                </div>
-              )}
-              {timerCollapsed && (
-                <div className="timer-collapsed-actions">
-                  <button type="button" className="icon-btn" title="Expand panel" onClick={(e)=>{ e.stopPropagation(); setTimerCollapsed(false); }}>▣</button>
-                  <button type="button" className="icon-btn" title="Fullscreen" onClick={(e)=>{ e.stopPropagation(); setTimerOpen(true); }}>⤢</button>
                 </div>
               )}
             </>

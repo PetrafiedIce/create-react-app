@@ -1149,7 +1149,8 @@ export default function HomeworkApp() {
 
   const [newTaskDueISO, setNewTaskDueISO] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(Boolean(initialSettings.notificationsEnabled));
-  const [timerCollapsed, setTimerCollapsed] = useState(Boolean(initialSettings.timerCollapsed));
+  const [timerCollapsed, setTimerCollapsed] = useState(typeof initialSettings.timerCollapsed === 'boolean' ? initialSettings.timerCollapsed : true);
+  const [clockOpen, setClockOpen] = useState(false);
 
   // Live clock for header (top-left)
   const [now, setNow] = useState(() => new Date());
@@ -1187,7 +1188,7 @@ export default function HomeworkApp() {
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
         <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>
-          <span className="clock">{clockDate} • {clockTime}</span>
+          <span className="clock" role="button" aria-haspopup="dialog" aria-expanded={clockOpen} onClick={(e)=>{ e.stopPropagation(); setClockOpen(true); }}>{clockDate} • {clockTime}</span>
         </div>
         <div className="center">
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -1574,12 +1575,26 @@ export default function HomeworkApp() {
                       <button key={m} type="button" className={`btn btn-ghost chip-btn ${timerMinutes===m?'active':''}`} onClick={() => setTimerMinutes(m)}>{m}m</button>
                     ))}
                   </div>
+                  <div className="timer-edit-row">
+                    <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>setTimerMinutes(Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)))} aria-label="Minutes" style={{ width: 80 }} />
+                    <input className="input" type="time" onChange={(e)=>{ const v=e.target.value; if(!v) return; const [hh,mm]=v.split(':').map(n=>Number(n)||0); const now=new Date(); const target=new Date(); target.setHours(hh,mm,0,0); if (target.getTime() <= now.getTime()) target.setDate(target.getDate()+1); const diffSec=Math.max(60, Math.round((target.getTime()-now.getTime())/1000)); setTimerMinutes(Math.round(diffSec/60)); setTimeLeft(diffSec); }} aria-label="End time" />
+                  </div>
                 </div>
               )}
             </>
           );
         })()}
       </div>
+
+      {clockOpen && (
+        <div className="clock-overlay" role="dialog" aria-modal="true" onClick={() => setClockOpen(false)}>
+          <div className="clock-dialog" onClick={(e)=>e.stopPropagation()}>
+            <div className="clock-big-time">{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+            <div className="clock-big-date">{now.toLocaleString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            <button className="btn clock-close" onClick={() => setClockOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1149,6 +1149,7 @@ export default function HomeworkApp() {
 
   const [newTaskDueISO, setNewTaskDueISO] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(Boolean(initialSettings.notificationsEnabled));
+  const [timerCollapsed, setTimerCollapsed] = useState(Boolean(initialSettings.timerCollapsed));
 
   // Live clock for header (top-left)
   const [now, setNow] = useState(() => new Date());
@@ -1160,8 +1161,8 @@ export default function HomeworkApp() {
   const clockTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled]);
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed]);
 
   const requestNotify = useCallback(async () => {
     if (!('Notification' in window)) { alert('Notifications not supported'); return; }
@@ -1548,28 +1549,33 @@ export default function HomeworkApp() {
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
 
       {/* Bottom-left timer panel */}
-      <div className="timer-panel" role="region" aria-label="Focus timer">
+      <div className={`timer-panel ${timerCollapsed ? 'collapsed' : ''}`} role="region" aria-label="Focus timer">
+        <button type="button" className="collapse-btn" aria-label={timerCollapsed ? 'Expand timer' : 'Collapse timer'} title={timerCollapsed ? 'Expand' : 'Collapse'} onClick={() => setTimerCollapsed(c => !c)}>
+          {timerCollapsed ? '▣' : '—'}
+        </button>
         {(() => {
           const total = Math.max(1, timerMinutes * 60);
           const progressDeg = Math.min(360, Math.max(0, (1 - (timeLeft / total)) * 360));
           return (
             <>
-              <div className="timer-circle" style={{ ['--p']: `${progressDeg}deg` }}>
+              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }}>
                 <div className="timer-time" aria-live="polite">
                   {String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}
                 </div>
               </div>
-              <div className="timer-content">
-                <div className="timer-actions">
-                  <button type="button" className="icon-btn" title={timerRunning ? 'Pause' : 'Start'} onClick={() => setTimerRunning(r => !r)}>{timerRunning ? '⏸️' : '▶️'}</button>
-                  <button type="button" className="icon-btn" title="Reset" onClick={() => setTimeLeft(timerMinutes * 60)}>⟲</button>
+              {!timerCollapsed && (
+                <div className="timer-content">
+                  <div className="timer-actions">
+                    <button type="button" className="icon-btn" title={timerRunning ? 'Pause' : 'Start'} onClick={() => setTimerRunning(r => !r)}>{timerRunning ? '⏸️' : '▶️'}</button>
+                    <button type="button" className="icon-btn" title="Reset" onClick={() => setTimeLeft(timerMinutes * 60)}>⟲</button>
+                  </div>
+                  <div className="chip-group">
+                    {[15, 25, 50].map(m => (
+                      <button key={m} type="button" className={`btn btn-ghost chip-btn ${timerMinutes===m?'active':''}`} onClick={() => setTimerMinutes(m)}>{m}m</button>
+                    ))}
+                  </div>
                 </div>
-                <div className="chip-group">
-                  {[15, 25, 50].map(m => (
-                    <button key={m} type="button" className={`btn btn-ghost chip-btn ${timerMinutes===m?'active':''}`} onClick={() => setTimerMinutes(m)}>{m}m</button>
-                  ))}
-                </div>
-              </div>
+              )}
             </>
           );
         })()}

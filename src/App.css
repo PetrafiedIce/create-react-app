@@ -167,19 +167,6 @@ body {
 
 .timer-panel { margin: 0 18px 10px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 10px; backdrop-filter: blur(6px); }
 .timer-panel.collapsed { grid-template-columns: 72px auto; padding-right: 6px; }
-.timer-panel .collapse-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-dim);
-  width: 24px;
-  height: 24px;
-  line-height: 1;
-  cursor: pointer;
-}
 .timer-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .timer-time { font-size: 24px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); }
 .timer-circle { position: relative; }
@@ -606,3 +593,16 @@ body {
 .clock-close { justify-self: center; }
 
 .timer-time { font-size: 16px; }
+
+/* Timer panel drag positioning */
+.timer-panel { position: fixed; }
+
+/* Fullscreen timer overlay */
+.timer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: grid; place-items: center; z-index: 50; }
+.timer-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; display: grid; gap: 16px; width: min(720px, 92vw); text-align: center; }
+.timer-big-circle { --p: 0deg; width: clamp(220px, 60vw, 420px); height: clamp(220px, 60vw, 420px); border-radius: 999px; background: conic-gradient(var(--primary) var(--p), rgba(148,163,184,0.18) 0deg); display: grid; place-items: center; margin: 0 auto; }
+.timer-big-time { width: 86%; height: 86%; border-radius: 999px; background: var(--bg); display: grid; place-items: center; font-variant-numeric: tabular-nums; font-weight: 900; font-size: clamp(42px, 12vw, 96px); }
+.timer-big-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/* Remove collapse button (legacy) */
+.collapse-btn { display: none; }

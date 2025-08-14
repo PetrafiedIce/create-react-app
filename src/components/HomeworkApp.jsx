@@ -434,8 +434,8 @@ export default function HomeworkApp() {
   useEffect(() => { setMenuOpen(false); }, [activeTab]);
 
   useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId]);
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed]);
 
   useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
   useEffect(() => {
@@ -1151,6 +1151,16 @@ export default function HomeworkApp() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(Boolean(initialSettings.notificationsEnabled));
   const [timerCollapsed, setTimerCollapsed] = useState(typeof initialSettings.timerCollapsed === 'boolean' ? initialSettings.timerCollapsed : true);
   const [clockOpen, setClockOpen] = useState(false);
+  const [timerOpen, setTimerOpen] = useState(false);
+  const defaultTimerPos = useMemo(() => {
+    const safeY = typeof window !== 'undefined' ? Math.max(16, (window.innerHeight || 600) - 120) : 16;
+    return initialSettings.timerPos && typeof initialSettings.timerPos.x === 'number' && typeof initialSettings.timerPos.y === 'number'
+      ? initialSettings.timerPos
+      : { x: 16, y: safeY };
+  }, [initialSettings.timerPos]);
+  const [timerPos, setTimerPos] = useState(defaultTimerPos);
+  const timerRef = useRef(null);
+  const dragRef = useRef({ active: false, dx: 0, dy: 0 });
 
   // Live clock for header (top-left)
   const [now, setNow] = useState(() => new Date());
@@ -1162,8 +1172,8 @@ export default function HomeworkApp() {
   const clockTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed]);
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed, timerPos });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed, timerPos]);
 
   const requestNotify = useCallback(async () => {
     if (!('Notification' in window)) { alert('Notifications not supported'); return; }
@@ -1182,6 +1192,30 @@ export default function HomeworkApp() {
     setIsAdding(true);
     setNewTaskDueISO(iso || null);
     setTaskFormOpen(true);
+  };
+
+  const onTimerPointerDown = (e) => {
+    if (e.button !== 0) return;
+    const rect = timerRef.current?.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const offX = startX - (rect?.left || 0);
+    const offY = startY - (rect?.top || 0);
+    dragRef.current = { active: true, dx: offX, dy: offY };
+    window.addEventListener('pointermove', onTimerPointerMove);
+    window.addEventListener('pointerup', onTimerPointerUp, { once: true });
+  };
+  const onTimerPointerMove = (e) => {
+    if (!dragRef.current.active) return;
+    const nextX = e.clientX - dragRef.current.dx;
+    const nextY = e.clientY - dragRef.current.dy;
+    const maxX = (window.innerWidth || 800) - (timerRef.current?.offsetWidth || 200) - 8;
+    const maxY = (window.innerHeight || 600) - (timerRef.current?.offsetHeight || 100) - 8;
+    setTimerPos({ x: Math.max(8, Math.min(maxX, nextX)), y: Math.max(8, Math.min(maxY, nextY)) });
+  };
+  const onTimerPointerUp = () => {
+    dragRef.current.active = false;
+    window.removeEventListener('pointermove', onTimerPointerMove);
   };
 
   return (
@@ -1550,16 +1584,13 @@ export default function HomeworkApp() {
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
 
       {/* Bottom-left timer panel */}
-      <div className={`timer-panel ${timerCollapsed ? 'collapsed' : ''}`} role="region" aria-label="Focus timer">
-        <button type="button" className="collapse-btn" aria-label={timerCollapsed ? 'Expand timer' : 'Collapse timer'} title={timerCollapsed ? 'Expand' : 'Collapse'} onClick={() => setTimerCollapsed(c => !c)}>
-          {timerCollapsed ? '▣' : '—'}
-        </button>
+      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : ''}`} role="region" aria-label="Focus timer" style={{ left: `${timerPos.x}px`, top: `${timerPos.y}px` }} onPointerDown={onTimerPointerDown} onClick={(e)=>{ e.stopPropagation(); if (timerCollapsed) setTimerCollapsed(false); }}>
         {(() => {
           const total = Math.max(1, timerMinutes * 60);
           const progressDeg = Math.min(360, Math.max(0, (1 - (timeLeft / total)) * 360));
           return (
             <>
-              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }}>
+              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }} onClick={(e)=>{ e.stopPropagation(); if (!timerCollapsed) setTimerOpen(true); else setTimerCollapsed(false); }}>
                 <div className="timer-time" aria-live="polite">
                   {String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}
                 </div>
@@ -1572,12 +1603,11 @@ export default function HomeworkApp() {
                   </div>
                   <div className="chip-group">
                     {[15, 25, 50].map(m => (
-                      <button key={m} type="button" className={`btn btn-ghost chip-btn ${timerMinutes===m?'active':''}`} onClick={() => setTimerMinutes(m)}>{m}m</button>
+                      <button key={m} type="button" className={`btn btn-ghost chip-btn ${timerMinutes===m?'active':''}`} onClick={() => { setTimerMinutes(m); setTimeLeft(m*60); }}>{m}m</button>
                     ))}
                   </div>
                   <div className="timer-edit-row">
-                    <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>setTimerMinutes(Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)))} aria-label="Minutes" style={{ width: 80 }} />
-                    <input className="input" type="time" onChange={(e)=>{ const v=e.target.value; if(!v) return; const [hh,mm]=v.split(':').map(n=>Number(n)||0); const now=new Date(); const target=new Date(); target.setHours(hh,mm,0,0); if (target.getTime() <= now.getTime()) target.setDate(target.getDate()+1); const diffSec=Math.max(60, Math.round((target.getTime()-now.getTime())/1000)); setTimerMinutes(Math.round(diffSec/60)); setTimeLeft(diffSec); }} aria-label="End time" />
+                    <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>{ const v=Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)); setTimerMinutes(v); setTimeLeft(v*60); }} aria-label="Minutes" placeholder="Minutes" style={{ width: 96 }} />
                   </div>
                 </div>
               )}
@@ -1585,6 +1615,23 @@ export default function HomeworkApp() {
           );
         })()}
       </div>
+
+      {timerOpen && (
+        <div className="timer-overlay" role="dialog" aria-modal="true" onClick={() => setTimerOpen(false)}>
+          <div className="timer-dialog" onClick={(e)=>e.stopPropagation()}>
+            <div className="timer-big-circle" style={{ '--p': `${Math.min(360, Math.max(0, (1 - (timeLeft / Math.max(1,timerMinutes*60))) * 360))}deg` }}>
+              <div className="timer-big-time">{String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}</div>
+            </div>
+            <div className="timer-big-actions">
+              <button className="btn" onClick={()=>setTimerRunning(r=>!r)}>{timerRunning ? 'Pause' : 'Start'}</button>
+              <button className="btn btn-ghost" onClick={()=>setTimeLeft(timerMinutes*60)}>Reset</button>
+              {[15,25,50].map(m => <button key={m} className={`btn btn-ghost ${timerMinutes===m?'active':''}`} onClick={()=>{ setTimerMinutes(m); setTimeLeft(m*60); }}>{m}m</button>)}
+              <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>{ const v=Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)); setTimerMinutes(v); setTimeLeft(v*60); }} aria-label="Minutes" placeholder="Minutes" style={{ width: 110 }} />
+            </div>
+            <button className="btn clock-close" onClick={()=>setTimerOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
 
       {clockOpen && (
         <div className="clock-overlay" role="dialog" aria-modal="true" onClick={() => setClockOpen(false)}>

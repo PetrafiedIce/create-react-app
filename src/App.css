@@ -481,3 +481,10 @@ body {
 .day-tip-title { font-weight: 700; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
 .day-tip-list { display: grid; gap: 4px; }
 .day-tip-item, .day-tip-more { font-size: 12px; color: var(--text); }
+
+/* Floating action button */
+.fab { position: fixed; right: 18px; bottom: 18px; width: 56px; height: 56px; border-radius: 50%; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(96,165,250,0.16), rgba(96,165,250,0.08)); color: var(--text); font-size: 24px; display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-md); z-index: 50; }
+.fab:hover { filter: brightness(1.08); transform: translateY(-1px); }
+@media (max-width: 700px) {
+  .fab { right: 12px; bottom: 12px; width: 56px; height: 56px; }
+}

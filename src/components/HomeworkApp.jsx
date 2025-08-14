@@ -1165,9 +1165,7 @@ export default function HomeworkApp() {
                   <option value="updated">Sort: Updated</option>
                 </select>
               </div>
-              <div className="right">
-                <button className="btn" onClick={beginAdd}>＋ New assignment</button>
-              </div>
+              <div className="right"></div>
             </div>
           </div>
           <div className="stat-cards">
@@ -1587,6 +1585,8 @@ export default function HomeworkApp() {
       <footer className="hw-footer">
         <div>Privacy: No accounts, no tracking; your data stays on this device.</div>
       </footer>
+
+      <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
     </div>
   );
 }

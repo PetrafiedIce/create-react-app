@@ -433,10 +433,6 @@ export default function HomeworkApp() {
   // Close menus on route/tab change
   useEffect(() => { setMenuOpen(false); }, [activeTab]);
 
-  useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed]);
-
   useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
   useEffect(() => {
     if (!timerRunning) return;
@@ -1171,6 +1167,7 @@ export default function HomeworkApp() {
   const clockDate = now.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const clockTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  // Persist settings once all related state is defined
   useEffect(() => {
     saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed, timerPos });
   }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed, timerPos]);

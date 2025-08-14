@@ -1110,9 +1110,11 @@ export default function HomeworkApp() {
         <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>School Planner</div>
         <div className="center">
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <button type="button" className="icon-btn" title="Filters" aria-expanded={filtersOpen} onClick={(e)=>{ e.stopPropagation(); setFiltersOpen(v=>!v); }} style={{ marginLeft: 8 }}>⚙️</button>
+          <button type="button" className="icon-btn filter" title="Filters" aria-expanded={filtersOpen} onClick={(e)=>{ e.stopPropagation(); setFiltersOpen(v=>!v); }} style={{ marginLeft: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18l-7 8v5l-4-2v-3L3 5z"/></svg>
+          </button>
           {filtersOpen && (
-            <div ref={filtersRef} className="dropdown" role="menu" style={{ position:'absolute', top: 54, left: '50%', transform:'translateX(-50%)', minWidth: 280 }} onClick={(e)=>e.stopPropagation()}>
+            <div ref={filtersRef} className="dropdown filter-dropdown" role="menu" style={{ position:'absolute', top: 54, left: '50%', transform:'translateX(-50%)', minWidth: 280 }} onClick={(e)=>e.stopPropagation()}>
               <div className="item" role="menuitem" style={{ pointerEvents: 'none', opacity: 0.8 }}>Filters</div>
               <div className="item" role="menuitem">
                 <span style={{ flex: 1 }}>Status</span>
@@ -1594,10 +1596,6 @@ export default function HomeworkApp() {
           </div>
         </div>
       )}
-
-      <footer className="hw-footer" style={{ paddingBottom: 64 }}>
-        <div>Privacy: No accounts, no tracking; your data stays on this device.</div>
-      </footer>
 
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
     </div>

@@ -1,10 +1,139 @@
-body {
-  margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Base theme */
+:root {
+  --bg: #0b1220;
+  --surface: #0f172a;
+  --text: #e5e7eb;
+  --text-dim: #9ca3af;
+  --border: #1f2937;
+  --primary: #2563eb;
+  --danger: #ef4444;
 }
 
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
 }
+
+/* Light theme */
+html:not([data-theme='dark']) {
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --text: #111827;
+  --text-dim: #6b7280;
+  --border: #e5e7eb;
+}
+
+/* Header */
+.hw-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.hw-title { font-weight: 800; letter-spacing: -0.02em; cursor: pointer; min-width: 32px; min-height: 24px; }
+.hw-header .center { display: flex; align-items: center; gap: 8px; flex: 1; }
+.hw-header .right { display: flex; align-items: center; gap: 8px; }
+
+/* Controls */
+.input {
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.input.search { width: 100%; max-width: 520px; }
+
+.btn {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--text); border-color: var(--border); }
+.btn-danger { background: var(--danger); border-color: var(--danger); }
+
+.icon-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.icon-btn.active { outline: 2px solid var(--primary); }
+
+.chip { display: inline-flex; align-items: center; padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; }
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+
+.dropdown { position: absolute; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-width: 200px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+.dropdown .item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; }
+.dropdown .item:hover { background: rgba(148,163,184,0.12); }
+
+/* Panels and modal */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: grid; place-items: center; padding: 16px; }
+.modal-panel { width: 100%; max-width: 720px; }
+
+/* Board */
+.board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; padding: 16px; }
+.column { display: flex; flex-direction: column; gap: 8px; }
+.column-title { font-weight: 700; padding: 6px 2px; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.card-overdue { border-color: #ef4444; }
+.card-title-row { display: flex; align-items: center; gap: 10px; }
+.title-area .title { font-weight: 700; }
+.meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.due-row { display: flex; align-items: center; justify-content: space-between; }
+.notes { color: var(--text-dim); }
+
+/* Calendar */
+.calendar { padding: 16px; }
+.calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.weekday-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+.weekday { text-align: center; font-weight: 700; color: var(--text-dim); }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.calendar-cell { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-height: 90px; position: relative; }
+.calendar-date { font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
+.cal-task { font-size: 12px; padding: 2px 6px; border-radius: 6px; background: rgba(148,163,184,0.16); margin-bottom: 4px; }
+.cal-task.done { opacity: 0.6; text-decoration: line-through; }
+
+/* Hero and stats */
+.hero { padding: 12px 16px; }
+.hero-title { margin: 0 0 4px; font-size: 18px; }
+.hero-subtitle { margin: 0; color: var(--text-dim); }
+.stat-cards { display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap: 8px; margin-top: 8px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
+.stat-top { display: flex; justify-content: space-between; color: var(--text-dim); margin-bottom: 6px; }
+.stat-kpi { font-weight: 800; font-size: 20px; }
+
+/* Floating Action Button */
+.fab { position: fixed; right: 16px; bottom: 16px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 999px; font-size: 20px; }
+
+/* Simple animations */
+.fade-in { animation: fadein 240ms ease-out; }
+.slide-in { animation: slidein 320ms ease-out; }
+@keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slidein { from { transform: translateY(6px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+/* Due tooltip */
+.due-tooltip { display: none; position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; top: 100%; left: 0; white-space: nowrap; margin-top: 4px; }
+.due-wrap { position: relative; }
+.due-wrap:focus .due-tooltip, .due-wrap:hover .due-tooltip { display: block; }
+
+/* Timer group */
+.timer { display: inline-flex; align-items: center; gap: 6px; }

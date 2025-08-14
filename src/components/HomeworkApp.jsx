@@ -106,7 +106,7 @@ function loadCanvas(noteId) {
 }
 function saveCanvas(noteId, items) { try { localStorage.setItem(NOTES_CANVAS_KEY_PREFIX + noteId, JSON.stringify(items)); } catch {} }
 
-function defaultNewTask() {
+function defaultNewTask(overrideDueAtISO = null) {
   const now = new Date();
   const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
   return {
@@ -116,7 +116,7 @@ function defaultNewTask() {
     notes: '',
     priority: 'medium',
     status: 'todo',
-    dueAt: twoHoursLater.toISOString(),
+    dueAt: overrideDueAtISO || twoHoursLater.toISOString(),
     estimatedMinutes: 60,
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
@@ -307,7 +307,7 @@ export default function HomeworkApp() {
   const [timerMinutes, setTimerMinutes] = useState(25);
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [activeTab, setActiveTab] = useState('planner'); // planner | calendar | settings
+  const [activeTab, setActiveTab] = useState('planner'); // planner | calendar | settings | notes
   const [notes, setNotes] = useState(() => loadNotes());
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [noteTitle, setNoteTitle] = useState('');
@@ -433,10 +433,6 @@ export default function HomeworkApp() {
   // Close menus on route/tab change
   useEffect(() => { setMenuOpen(false); }, [activeTab]);
 
-  useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId]);
-
   useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
   useEffect(() => {
     if (!timerRunning) return;
@@ -458,6 +454,41 @@ export default function HomeworkApp() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'homework_tasks.csv'; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const exportIcs = () => {
+    const formatDate = (iso) => {
+      if (!iso) return null;
+      const d = new Date(iso);
+      const pad = (n) => String(n).padStart(2, '0');
+      return (
+        d.getUTCFullYear().toString() +
+        pad(d.getUTCMonth() + 1) +
+        pad(d.getUTCDate()) + 'T' +
+        pad(d.getUTCHours()) +
+        pad(d.getUTCMinutes()) +
+        pad(d.getUTCSeconds()) + 'Z'
+      );
+    };
+    const escapeText = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+    const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//School Homework Planner//EN'];
+    const now = formatDate(new Date().toISOString());
+    tasks.forEach(t => {
+      const dt = formatDate(t.dueAt);
+      if (!dt) return;
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${t.id}@local`);
+      lines.push(`DTSTAMP:${now}`);
+      lines.push(`DTSTART:${dt}`);
+      lines.push(`SUMMARY:${escapeText(t.title)}`);
+      if (t.notes) lines.push(`DESCRIPTION:${escapeText(t.notes)}`);
+      lines.push('END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    const blob = new Blob([lines.join('\n')], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'homework_tasks.ics'; a.click(); URL.revokeObjectURL(url);
   };
 
   // Handle repeat when marking done
@@ -591,12 +622,14 @@ export default function HomeworkApp() {
     setEditingId(null);
     setIsAdding(true);
     setTaskFormOpen(true);
+    setNewTaskDueISO(null);
   };
 
   const cancelForm = () => {
     setIsAdding(false);
     setEditingId(null);
     setTaskFormOpen(false);
+    setNewTaskDueISO(null);
   };
 
   const upsertTask = (task) => {
@@ -608,6 +641,7 @@ export default function HomeworkApp() {
     setIsAdding(false);
     setEditingId(null);
     setTaskFormOpen(false);
+    setNewTaskDueISO(null);
   };
 
   const removeTask = (id) => {
@@ -1109,10 +1143,117 @@ export default function HomeworkApp() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filtersRef = useRef(null);
 
+  const [newTaskDueISO, setNewTaskDueISO] = useState(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(Boolean(initialSettings.notificationsEnabled));
+  const [timerCollapsed, setTimerCollapsed] = useState(true);
+  const [clockOpen, setClockOpen] = useState(false);
+  const [timerOpen, setTimerOpen] = useState(false);
+  const defaultTimerPos = useMemo(() => {
+    const wh = typeof window !== 'undefined' ? (window.innerHeight || 600) : 600;
+    const panelH = 110;
+    return { x: 16, y: Math.max(16, wh - panelH - 16) };
+  }, []);
+  const [timerPos, setTimerPos] = useState(defaultTimerPos);
+  const timerRef = useRef(null);
+  const dragRef = useRef({ active: false, dx: 0, dy: 0, startX: 0, startY: 0, moved: false, downOnControl: false });
+  const [timerDragging, setTimerDragging] = useState(false);
+  const rafRef = useRef(0);
+  const latestPosRef = useRef(timerPos);
+
+  useEffect(() => {
+    // Force default on load
+    setTimerCollapsed(true);
+    const wh = (typeof window !== 'undefined') ? (window.innerHeight || 600) : 600;
+    setTimerPos({ x: 16, y: Math.max(16, wh - 110 - 16) });
+  }, []);
+
+  // Live clock for header (top-left)
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const clockDate = now.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const clockTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Persist settings (excluding timer UI position/state to keep defaults on refresh)
+  useEffect(() => {
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled]);
+
+  const requestNotify = useCallback(async () => {
+    if (!('Notification' in window)) { alert('Notifications not supported'); return; }
+    const permission = await Notification.requestPermission();
+    setNotificationsEnabled(permission === 'granted');
+  }, []);
+  const testNotification = useCallback(() => {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      new Notification('Reminder enabled', { body: 'Notifications are working.' });
+    }
+  }, []);
+
+  const beginAddWithDueDate = (iso) => {
+    setEditingId(null);
+    setIsAdding(true);
+    setNewTaskDueISO(iso || null);
+    setTaskFormOpen(true);
+  };
+
+  const onTimerPointerDown = (e) => {
+    if (e.button !== 0) return;
+    const downOnControl = !!(e.target.closest && e.target.closest('input,button,select,textarea'));
+    if (downOnControl) return;
+    e.preventDefault();
+    const rect = timerRef.current?.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const offX = startX - (rect?.left || 0);
+    const offY = startY - (rect?.top || 0);
+    dragRef.current = { active: true, dx: offX, dy: offY, startX, startY, moved: false, downOnControl };
+    setTimerDragging(true);
+    document.body.classList.add('timer-grabbing');
+    try { timerRef.current?.setPointerCapture?.(e.pointerId); } catch {}
+    window.addEventListener('pointermove', onTimerPointerMove);
+    window.addEventListener('pointerup', onTimerPointerUp, { once: true });
+  };
+  const onTimerPointerMove = (e) => {
+    if (!dragRef.current.active) return;
+    const movedDist = Math.abs(e.clientX - dragRef.current.startX) + Math.abs(e.clientY - dragRef.current.startY);
+    if (!dragRef.current.moved && movedDist > 6) dragRef.current.moved = true;
+    const rawX = e.clientX - dragRef.current.dx;
+    const rawY = e.clientY - dragRef.current.dy;
+    const w = timerRef.current?.offsetWidth || 320;
+    const h = timerRef.current?.offsetHeight || 96;
+    const maxX = (window.innerWidth || 800) - w - 8;
+    const maxY = (window.innerHeight || 600) - h - 8;
+    const clamped = { x: Math.max(8, Math.min(maxX, rawX)), y: Math.max(8, Math.min(maxY, rawY)) };
+    latestPosRef.current = clamped;
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0;
+        setTimerPos(latestPosRef.current);
+      });
+    }
+  };
+  const onTimerPointerUp = () => {
+    dragRef.current.active = false;
+    setTimerDragging(false);
+    document.body.classList.remove('timer-grabbing');
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
+    window.removeEventListener('pointermove', onTimerPointerMove);
+    // Toggle expand/collapse if it was a click (no drag)
+    if (!dragRef.current.moved && !dragRef.current.downOnControl) {
+      setTimerCollapsed(c => !c);
+    }
+  };
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
-        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}></div>
+        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>
+          <span className="clock" role="button" aria-haspopup="dialog" aria-expanded={clockOpen} onClick={(e)=>{ e.stopPropagation(); setClockOpen(true); }}>{clockDate} • {clockTime}</span>
+        </div>
         <div className="center">
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
           <button type="button" className="icon-btn filter" title="Filters" aria-expanded={filtersOpen} onClick={(e)=>{ e.stopPropagation(); setFiltersOpen(v=>!v); }} style={{ marginLeft: 8 }}>
@@ -1152,9 +1293,8 @@ export default function HomeworkApp() {
         <div className="right">
           <button type="button" className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
           <button type="button" className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
-                      
+          <button type="button" className={`icon-btn ${activeTab==='notes' ? 'active' : ''}`} title="Notes" aria-pressed={activeTab==='notes'} onClick={() => setActiveTab('notes')}>📝</button>
           <button type="button" className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
-          
           <button type="button" className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
             <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
@@ -1226,7 +1366,7 @@ export default function HomeworkApp() {
         <div className="modal" onClick={cancelForm}>
           <div className="panel modal-panel slide-down" onClick={(e)=>e.stopPropagation()}>
             <div className="panel-title">{editingTask ? 'Edit assignment' : 'New assignment'}</div>
-            <AssignmentForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} subjectsList={subjects} />
+            <AssignmentForm initialTask={editingTask || defaultNewTask(newTaskDueISO)} onSave={upsertTask} onCancel={cancelForm} subjectsList={subjects} />
           </div>
         </div>
       )}
@@ -1247,7 +1387,7 @@ export default function HomeworkApp() {
               const dayTasks = tasksByDay.get(key) || [];
               const fullLabel = `${d.toLocaleDateString()} — ${dayTasks.length} task(s)`;
               return (
-                <div className="calendar-cell day-wrap" key={key} tabIndex={0}>
+                <div className="calendar-cell day-wrap" key={key} tabIndex={0} onDoubleClick={() => beginAddWithDueDate(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 17, 0, 0).toISOString())}>
                   <div className="calendar-date">{d.getDate()}</div>
                   <div className="calendar-tasks">
                     {dayTasks.map(t => (
@@ -1268,175 +1408,10 @@ export default function HomeworkApp() {
             })}
           </div>
         </div>
-      ) : false ? (
-        <div className="notes-layout-left fade-in" onClick={() => setMenuOpen(false)} style={{ ['--notes-sidebar-w']: leftCollapsed ? '56px' : '260px' }}>
-          <button className="btn notes-left-toggle" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
-          <aside className={`notes-left ${leftCollapsed ? 'collapsed' : ''}`}>
-            <div className="notes-left-header">
-              <button className="btn" onClick={() => { const nId = generateId(); const n={ id:nId, title:'New note', body:'', createdAt:new Date().toISOString(), updatedAt:new Date().toISOString() }; setNotes(prev=>[n,...prev]); setSelectedNoteId(nId); }}>New</button>
-              <button className="btn btn-ghost" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
-            </div>
-            <div className="notes-left-body">
-              {filteredNotes.map(n => (
-                <div key={n.id} className={`notes-left-item ${selectedNoteId===n.id ? 'active':''}`} onClick={() => setSelectedNoteId(n.id)} onDoubleClick={() => { const title=prompt('Rename note', n.title||'')??n.title; setNotes(prev=>prev.map(x=>x.id===n.id?{...x,title,updatedAt:new Date().toISOString()}:x)); }}>
-                  <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title||'Untitled'}</div>
-                  {!leftCollapsed && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{new Date(n.updatedAt||n.createdAt).toLocaleString()}</div>}
-                </div>
-              ))}
-              {filteredNotes.length===0 && <div className="empty">No notes yet. Click New.</div>}
-            </div>
-            <div className="notes-left-footer">
-              {!leftCollapsed && (
-                <>
-                  <input className="input" placeholder="Title" value={noteTitle} onChange={(e)=>setNoteTitle(e.target.value)} />
-                  <button className="btn" onClick={() => { if (!selectedNoteId) return; setNotes(prev=>prev.map(n=> n.id===selectedNoteId ? { ...n, title: noteTitle||n.title, updatedAt:new Date().toISOString() } : n)); setNoteTitle(''); }}>Save</button>
-                </>
-              )}
-            </div>
-          </aside>
-          <div className="notes-canvas" onWheel={onWheelZoom}>
-            <div className="notes-topbar">
-              <div className="left">
-                <input className="input" placeholder="Search notes..." value={noteSearch} onChange={(e)=>setNoteSearch(e.target.value)} />
-              </div>
-              <div className="right">
-                <button className={`btn btn-ghost ${notesMode==='editor'?'active':''}`} onClick={()=>setNotesMode('editor')}>Editor</button>
-                <button className={`btn btn-ghost ${notesMode==='canvas'?'active':''}`} onClick={()=>setNotesMode('canvas')}>Canvas</button>
-              </div>
-            </div>
-
-            {notesMode === 'editor' ? (
-              <div className="rte-wrap">
-                <div className="rte-toolbar" role="toolbar" aria-label="Formatting">
-                  <button className="tool-btn" aria-label="Bold (Ctrl+B)" onClick={(e)=>{e.preventDefault(); document.execCommand('bold');}}>B</button>
-                  <button className="tool-btn" aria-label="Italic (Ctrl+I)" onClick={(e)=>{e.preventDefault(); document.execCommand('italic');}}><i>I</i></button>
-                  <button className="tool-btn" aria-label="Underline (Ctrl+U)" onClick={(e)=>{e.preventDefault(); document.execCommand('underline');}}><u>U</u></button>
-                  <button className="tool-btn" aria-label="Bulleted list" onClick={(e)=>{e.preventDefault(); document.execCommand('insertUnorderedList');}}>• List</button>
-                  <select className="input" aria-label="Font" onChange={(e)=>document.execCommand('fontName', false, e.target.value)}>
-                    <option value="">Font</option>
-                    <option value="Arial">Arial</option>
-                    <option value="Georgia">Georgia</option>
-                    <option value="Times New Roman">Times</option>
-                    <option value="Courier New">Courier</option>
-                    <option value="Verdana">Verdana</option>
-                  </select>
-                  <select className="input" aria-label="Size" onChange={(e)=>document.execCommand('fontSize', false, e.target.value)}>
-                    <option value="3">Size</option>
-                    <option value="2">Small</option>
-                    <option value="3">Normal</option>
-                    <option value="4">Large</option>
-                    <option value="5">X-Large</option>
-                  </select>
-                  <button className="tool-btn" aria-label="Insert link" onClick={(e)=>{e.preventDefault(); const url=prompt('URL'); if(url) document.execCommand('createLink',false,url);}}>Link</button>
-                  <button className="tool-btn" aria-label="Insert image" onClick={(e)=>{e.preventDefault(); imgInputRef.current?.click();}}>Image</button>
-                  <input ref={imgInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ document.execCommand('insertImage', false, r.result); }; r.readAsDataURL(f); e.target.value=''; }} />
-                  <button className="tool-btn" aria-label="Undo (Ctrl+Z)" onClick={(e)=>{e.preventDefault(); document.execCommand('undo');}}>Undo</button>
-                  <button className="tool-btn" aria-label="Redo (Ctrl+Y)" onClick={(e)=>{e.preventDefault(); document.execCommand('redo');}}>Redo</button>
-                </div>
-                <div
-                  ref={editorRef}
-                  className="rte-editor"
-                  contentEditable
-                  role="textbox"
-                  aria-multiline="true"
-                  placeholder="Write your notes here..."
-                  onInput={(e)=>{ const html=e.currentTarget.innerHTML; setRteHtml(html); if(selectedNoteId){ setNotes(prev=>prev.map(n=> n.id===selectedNoteId ? { ...n, body: html, updatedAt:new Date().toISOString() } : n)); }}}
-                  dangerouslySetInnerHTML={{ __html: (notes.find(n=>n.id===selectedNoteId)?.body)||rteHtml }}
-                />
-                <div className="rte-actions">
-                  <input className="input" placeholder="Note title" value={noteTitle} onChange={(e)=>setNoteTitle(e.target.value)} />
-                  <button className="btn" onClick={saveNote}>Save</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="canvas-stage">
-                  <div className="canvas-toolbox">
-                    <button className={`tool-btn ${tool==='select'?'tool-active':''}`} aria-label="Select" title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
-                    <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} aria-label="Pan" title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
-                    <button className={`tool-btn ${tool==='text'?'tool-active':''}`} aria-label="Text" title="Text (T)" onClick={()=>setTool('text')}>T</button>
-                    <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} aria-label="Rectangle" title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
-                    <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} aria-label="Ellipse" title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
-                    <button className={`tool-btn ${tool==='line'?'tool-active':''}`} aria-label="Line" title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
-                    <button className={`tool-btn ${tool==='image'?'tool-active':''}`} aria-label="Image" title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
-                  </div>
-                  <div className="inspector-bar">
-                    <div className="chip">Text:</div>
-                    <select className="input" value={textStyle.font} onChange={(e)=>applyTextStyle('font', e.target.value)}>
-                      <option value="sans-serif">Sans</option>
-                      <option value="serif">Serif</option>
-                      <option value="monospace">Mono</option>
-                    </select>
-                    <input className="input" type="number" min="10" max="64" value={textStyle.size} onChange={(e)=>applyTextStyle('size', Number(e.target.value)||16)} />
-                    <input className="input" type="color" value={textStyle.color} onChange={(e)=>applyTextStyle('color', e.target.value)} />
-                    <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
-                    <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
-                  </div>
-                  <div className="canvas-zoom">
-                    <button className="zoom-btn" onClick={()=>setZoom(z=>Math.max(0.4, z-0.1))}>−</button>
-                    <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
-                    <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
-                  </div>
-                  <div className="canvas-overlay">
-                    {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
-                    {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
-                    <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
-                    {overlayQuick.open && selectedNoteId && tool==='select' && (
-                      <div className="quick-menu" style={{ left: overlayQuick.x, top: overlayQuick.y }} onClick={(e)=>e.stopPropagation()}>
-                        <div className="quick-item" onClick={() => { addTextItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add text</div>
-                        <div className="quick-item" onClick={() => { addShapeItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add rectangle</div>
-                        <div className="quick-item" onClick={() => { addEllipseItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add ellipse</div>
-                        <div className="quick-item" onClick={() => { addLineItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add line</div>
-                        <div className="quick-item" onClick={() => { triggerImageTool(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Import image</div>
-                      </div>
-                    )}
-                    {connections.map(c => {
-                      const a = getItemCenter(c.fromId); const b = getItemCenter(c.toId);
-                      return <svg key={c.id} style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
-                        <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(37,99,235,0.9)" strokeWidth="2" />
-                      </svg>;
-                    })}
-                    {drawingConn && (
-                      <svg style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
-                        <line x1={getItemCenter(drawingConn.fromId).x} y1={getItemCenter(drawingConn.fromId).y} x2={drawingConn.x} y2={drawingConn.y} stroke="rgba(37,99,235,0.6)" strokeDasharray="6 4" strokeWidth="2" />
-                      </svg>
-                    )}
-                  </div>
-                  <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') openQuickAt(e.clientX, e.clientY); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
-                    {canvasItems.map(it => (
-                      <div key={it.id}
-                        className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
-                        style={{ left: it.x, top: it.y, width: it.w, height: it.h }}
-                        onPointerDown={(e) => onPointerDown(e, it.id, 'move')}
-                      >
-                        {it.type === 'text' ? (
-                          <>
-                            <textarea
-                              className="canvas-text"
-                              value={it.text}
-                              onChange={(e) => updateText(it.id, e.target.value)}
-                              style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
-                            />
-                            <button className="btn btn-ghost" style={{ position: 'absolute', right: -36, top: '50%', transform: 'translateY(-50%)' }} onPointerDown={(e)=>startConnection(it.id, e)}>→</button>
-                          </>
-                        ) : it.type === 'image' ? (
-                          <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
-                        ) : it.type === 'ellipse' ? (
-                          <div style={{ width: '100%', height: '100%', borderRadius: 9999, background: it.fill }} />
-                        ) : it.type === 'line' ? (
-                          <div style={{ width: '100%', height: 2, background: it.stroke }} />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
-                        )}
-                        <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
-                      </div>
-                    ))}
-                    {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+      ) : activeTab === 'notes' ? (
+        <div className="panel fade-in" style={{ margin: 16 }}>
+          <div className="panel-title">Notes</div>
+          <div>Coming soon — this feature is under active development.</div>
         </div>
       ) : (
         <main className="board fade-in" onClick={() => setMenuOpen(false)}>
@@ -1445,7 +1420,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.overdue.length === 0 && <div className="empty">You're all caught up here.</div>}
               {grouped.overdue.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} onToggleSubtask={(subId) => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, subtasks: (x.subtasks||[]).map(s => s.id === subId ? { ...s, done: !s.done } : s) } : x))} />
               ))}
             </div>
           </section>
@@ -1454,7 +1429,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.today.length === 0 && <div className="empty">Nothing due today.</div>}
               {grouped.today.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} onToggleSubtask={(subId) => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, subtasks: (x.subtasks||[]).map(s => s.id === subId ? { ...s, done: !s.done } : s) } : x))} />
               ))}
             </div>
           </section>
@@ -1463,7 +1438,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.upcoming.length === 0 && <div className="empty">No upcoming tasks.</div>}
               {grouped.upcoming.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} onToggleSubtask={(subId) => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, subtasks: (x.subtasks||[]).map(s => s.id === subId ? { ...s, done: !s.done } : s) } : x))} />
               ))}
             </div>
           </section>
@@ -1472,7 +1447,7 @@ export default function HomeworkApp() {
             <div className="list">
               {grouped.done.length === 0 && <div className="empty">No completed tasks yet.</div>}
               {grouped.done.map(t => (
-                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} />
+                <TaskCard key={t.id} task={t} subjectColors={subjectColors} onEdit={() => setEditingId(t.id)} onDelete={() => removeTask(t.id)} onToggleDone={(d) => toggleDone(t.id, d)} onStart={() => setInProgress(t.id)} onPause={(id) => pauseTask(id)} onComplete={(id) => completeTask(id)} onToggleSubtask={(subId) => setTasks(prev => prev.map(x => x.id === t.id ? { ...x, subtasks: (x.subtasks||[]).map(s => s.id === subId ? { ...s, done: !s.done } : s) } : x))} />
               ))}
             </div>
           </section>
@@ -1505,6 +1480,14 @@ export default function HomeworkApp() {
                       </label>
                     </div>
                     <div className="settings-desc">Switch between light and dark themes.</div>
+                  </div>
+                  <div className="settings-section">
+                    <div className="settings-title">Notifications</div>
+                    <div className="settings-row inline">
+                      <button className="btn" onClick={requestNotify}>{notificationsEnabled ? 'Notifications enabled' : 'Enable notifications'}</button>
+                      <button className="btn btn-ghost" onClick={testNotification} disabled={!notificationsEnabled}>Test notification</button>
+                    </div>
+                    <div className="settings-note">Used for local reminders when the app is open.</div>
                   </div>
                 </>
               )}
@@ -1542,6 +1525,7 @@ export default function HomeworkApp() {
                       <div className="settings-actions">
                         <button className="btn" onClick={exportJson}>Export JSON</button>
                         <button className="btn" onClick={exportCsv}>Export CSV</button>
+                        <button className="btn" onClick={exportIcs}>Export ICS</button>
                         <label className="btn btn-ghost file-label">
                           Import JSON
                           <input type="file" accept="application/json" onChange={importJson} />
@@ -1628,12 +1612,73 @@ export default function HomeworkApp() {
       )}
 
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
+
+      {/* Bottom-left timer panel */}
+      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : 'expanded'} ${timerDragging ? 'dragging' : ''}`} role="region" aria-label="Focus timer" style={{ transform: `translate(${timerPos.x}px, ${timerPos.y}px)` }} onPointerDown={onTimerPointerDown}>
+        {(() => {
+          const total = Math.max(1, timerMinutes * 60);
+          const progressDeg = Math.min(360, Math.max(0, (1 - (timeLeft / total)) * 360));
+          return (
+            <>
+              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }}>
+                <div className="timer-time" aria-live="polite">
+                  {String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}
+                </div>
+              </div>
+              {!timerCollapsed && (
+                <div className="timer-content">
+                  <div className="timer-actions">
+                    <button type="button" className="icon-btn" title="Fullscreen" onClick={(e)=>{ e.stopPropagation(); setTimerOpen(true); }}>⤢</button>
+                    <button type="button" className="icon-btn" title={timerRunning ? 'Pause' : 'Start'} onClick={() => setTimerRunning(r => !r)}>{timerRunning ? '⏸️' : '▶️'}</button>
+                    <button type="button" className="icon-btn" title="Reset" onClick={() => setTimeLeft(timerMinutes * 60)}>⟲</button>
+                  </div>
+                  <div className="chip-group">
+                    {[15, 25, 50].map(m => (
+                      <button key={m} type="button" className={`btn btn-ghost chip-btn ${timerMinutes===m?'active':''}`} onClick={() => { setTimerMinutes(m); setTimeLeft(m*60); }}>{m}m</button>
+                    ))}
+                  </div>
+                  <div className="timer-edit-row">
+                    <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>{ const v=Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)); setTimerMinutes(v); setTimeLeft(v*60); }} aria-label="Minutes" placeholder="Minutes" style={{ width: 96 }} />
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
+      </div>
+
+      {timerOpen && (
+        <div className="timer-overlay" role="dialog" aria-modal="true" onClick={() => setTimerOpen(false)}>
+          <div className="timer-dialog" onClick={(e)=>e.stopPropagation()}>
+            <div className="timer-big-circle" style={{ '--p': `${Math.min(360, Math.max(0, (1 - (timeLeft / Math.max(1,timerMinutes*60))) * 360))}deg` }}>
+              <div className="timer-big-time">{String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}</div>
+            </div>
+            <div className="timer-big-actions">
+              <button className="btn" onClick={()=>setTimerRunning(r=>!r)}>{timerRunning ? 'Pause' : 'Start'}</button>
+              <button className="btn btn-ghost" onClick={()=>setTimeLeft(timerMinutes*60)}>Reset</button>
+              {[15,25,50].map(m => <button key={m} className={`btn btn-ghost ${timerMinutes===m?'active':''}`} onClick={()=>{ setTimerMinutes(m); setTimeLeft(m*60); }}>{m}m</button>)}
+              <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>{ const v=Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)); setTimerMinutes(v); setTimeLeft(v*60); }} aria-label="Minutes" placeholder="Minutes" style={{ width: 110 }} />
+            </div>
+            <button className="btn clock-close" onClick={()=>setTimerOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {clockOpen && (
+        <div className="clock-overlay" role="dialog" aria-modal="true" onClick={() => setClockOpen(false)}>
+          <div className="clock-dialog" onClick={(e)=>e.stopPropagation()}>
+            <div className="clock-big-time">{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+            <div className="clock-big-date">{now.toLocaleString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</div>
+            <button className="btn clock-close" onClick={() => setClockOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 
-function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onComplete, subjectColors }) {
+function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onComplete, subjectColors, onToggleSubtask }) {
   const dueDescriptor = formatDueDescriptor(task.dueAt);
   const dueDate = task.dueAt ? new Date(task.dueAt) : null;
   const dueDateFull = dueDate ? dueDate.toLocaleString() : 'No date';
@@ -1665,7 +1710,7 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
           <div className="subtasks">
             {task.subtasks.map(s => (
               <div className="subtask" key={s.id}>
-                <input type="checkbox" checked={s.done} onChange={() => {}} disabled />
+                <input type="checkbox" checked={s.done} onChange={() => onToggleSubtask && onToggleSubtask(s.id)} />
                 <span style={{ textDecoration: s.done ? 'line-through' : 'none' }}>{s.text}</span>
               </div>
             ))}

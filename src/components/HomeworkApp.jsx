@@ -1101,12 +1101,46 @@ export default function HomeworkApp() {
 
   const [settingsTab, setSettingsTab] = useState('general'); // general | account | data | integrations | sync
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef(null);
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
         <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>School Planner</div>
         <div className="center">
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <button type="button" className="icon-btn" title="Filters" aria-expanded={filtersOpen} onClick={(e)=>{ e.stopPropagation(); setFiltersOpen(v=>!v); }} style={{ marginLeft: 8 }}>⚙️</button>
+          {filtersOpen && (
+            <div ref={filtersRef} className="dropdown" role="menu" style={{ position:'absolute', top: 54, left: '50%', transform:'translateX(-50%)', minWidth: 280 }} onClick={(e)=>e.stopPropagation()}>
+              <div className="item" role="menuitem" style={{ pointerEvents: 'none', opacity: 0.8 }}>Filters</div>
+              <div className="item" role="menuitem">
+                <span style={{ flex: 1 }}>Status</span>
+                <select className="input" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}>
+                  <option value="all">All</option>
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
+              <div className="item" role="menuitem">
+                <span style={{ flex: 1 }}>Subject</span>
+                <select className="input" value={subjectFilter} onChange={(e)=>setSubjectFilter(e.target.value)}>
+                  <option value="all">All</option>
+                  {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="item" role="menuitem">
+                <span style={{ flex: 1 }}>Sort</span>
+                <select className="input" value={sortBy} onChange={(e)=>setSortBy(e.target.value)}>
+                  <option value="due">Due</option>
+                  <option value="priority">Priority</option>
+                  <option value="status">Status</option>
+                  <option value="updated">Updated</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
         <div className="right">
           <button type="button" className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
@@ -1146,27 +1180,6 @@ export default function HomeworkApp() {
               <h1 key={messageKey} className="hero-title slide-in">{messages[messageIdx]}</h1>
             </div>
             <p className="hero-subtitle">Stay consistent. The habits make the grade.</p>
-            <div className="toolbar" style={{ padding: 0, marginTop: 10 }}>
-              <div className="left">
-                <select className="input" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}>
-                  <option value="all">All statuses</option>
-                  <option value="todo">To do</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="done">Done</option>
-                </select>
-                <select className="input" value={subjectFilter} onChange={(e)=>setSubjectFilter(e.target.value)}>
-                  <option value="all">All subjects</option>
-                  {subjects.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select className="input" value={sortBy} onChange={(e)=>setSortBy(e.target.value)}>
-                  <option value="due">Sort: Due</option>
-                  <option value="priority">Sort: Priority</option>
-                  <option value="status">Sort: Status</option>
-                  <option value="updated">Sort: Updated</option>
-                </select>
-              </div>
-              <div className="right"></div>
-            </div>
           </div>
           <div className="stat-cards">
             <div className="stat-card">
@@ -1582,7 +1595,7 @@ export default function HomeworkApp() {
         </div>
       )}
 
-      <footer className="hw-footer">
+      <footer className="hw-footer" style={{ paddingBottom: 64 }}>
         <div>Privacy: No accounts, no tracking; your data stays on this device.</div>
       </footer>
 

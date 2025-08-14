@@ -1,10 +1,16 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEY = 'homework_tracker_v1';
 const SETTINGS_KEY = 'homework_settings_v1';
 const IN_PROGRESS_ID_KEY = 'homework_current_task_id';
 const NOTES_KEY = 'homework_notes_v1';
 const NOTES_CANVAS_KEY_PREFIX = 'homework_note_canvas_';
+
+// Supabase client (URL from env; will fallback to local only if not set)
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || '';
+const SUPABASE_ANON = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_ANON) ? createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -56,9 +62,13 @@ function formatDueDescriptor(isoString) {
   return diffMs < 0 ? `Overdue by ${days}d` : `Due in ${days}d`;
 }
 
-function loadTasks() {
+function getTaskStorageKey(userId) {
+  return userId ? `${STORAGE_KEY}__${userId}` : STORAGE_KEY;
+}
+
+function loadTasks(key = STORAGE_KEY) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -68,9 +78,9 @@ function loadTasks() {
   }
 }
 
-function saveTasks(tasks) {
+function saveTasks(tasks, key = STORAGE_KEY) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(key, JSON.stringify(tasks));
   } catch {}
 }
 
@@ -140,9 +150,9 @@ function InlineDatePicker({ valueISO, onChange }) {
   return (
     <div className="date-picker">
       <div className="date-picker-header">
-        <button className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
+        <button type="button" className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()-1, 1))}>Prev</button>
         <div className="chip">{viewDate.toLocaleString(undefined, { month:'long', year:'numeric' })}</div>
-        <button className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()+1, 1))}>Next</button>
+        <button type="button" className="btn btn-ghost" onClick={()=>setViewDate(d=>new Date(d.getFullYear(), d.getMonth()+1, 1))}>Next</button>
       </div>
       <div className="weekday-grid" style={{ margin: 0 }}>
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d} className="weekday">{d}</div>)}
@@ -151,24 +161,25 @@ function InlineDatePicker({ valueISO, onChange }) {
         {days.map((dt, idx) => {
           const muted = dt.getMonth() !== viewDate.getMonth();
           const isSel = selected && sameDay(dt, selected);
-          return <div key={idx} className={`date-cell ${muted?'muted':''} ${isSel?'selected':''}`} onClick={()=>onChange(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), selected?.getHours()||17, selected?.getMinutes()||0).toISOString())}>{dt.getDate()}</div>;
+          return <button type="button" key={idx} className={`date-cell ${muted?'muted':''} ${isSel?'selected':''}`} onClick={()=>onChange(new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), selected?.getHours()||17, selected?.getMinutes()||0).toISOString())}>{dt.getDate()}</button>;
         })}
       </div>
     </div>
   );
 }
 
-function TaskForm({ initialTask, onSave, onCancel }) {
+function AssignmentForm({ initialTask, onSave, onCancel, subjectsList = [] }) {
   const [title, setTitle] = useState(initialTask.title ?? '');
   const [subject, setSubject] = useState(initialTask.subject ?? '');
   const [notes, setNotes] = useState(initialTask.notes ?? '');
   const [priority, setPriority] = useState(initialTask.priority ?? 'medium');
-  const [status, setStatus] = useState(initialTask.status ?? 'todo');
   const [dueAtISO, setDueAtISO] = useState(initialTask.dueAt ?? null);
   const [estimatedMinutes, setEstimatedMinutes] = useState(initialTask.estimatedMinutes ?? 60);
+  const [repeat, setRepeat] = useState(initialTask.repeat ?? 'none');
+  const [reminderMinutes, setReminderMinutes] = useState(initialTask.reminderMinutesBefore ?? 0);
 
-  const suggestedSubjects = ['Math','Science','English','History','Art','PE'];
   const quickDurations = [15, 30, 45, 60, 90];
+  const reminderQuick = [0, 10, 30, 60, 120];
   const priorities = ['low','medium','high'];
 
   const handleSubmit = (e) => {
@@ -181,68 +192,110 @@ function TaskForm({ initialTask, onSave, onCancel }) {
       subject: subject.trim(),
       notes: notes.trim(),
       priority,
-      status,
       dueAt: dueAtISO,
       estimatedMinutes: Number(estimatedMinutes) || 0,
+      repeat,
+      reminderMinutesBefore: Number(reminderMinutes) || 0,
       updatedAt: new Date().toISOString(),
     });
   };
 
   return (
-    <form className="task-form" onSubmit={handleSubmit}>
-      <label className="field">
-        <span className="label">Title</span>
-        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Math worksheet on fractions" required />
-      </label>
-      <div className="chips">
-        {suggestedSubjects.map(s => (
-          <button key={s} type="button" className="btn btn-ghost" onClick={()=>setSubject(s)}>{s}</button>
-        ))}
-      </div>
-      <div className="form-grid" style={{ marginTop: 8 }}>
-        <label className="field">
-          <span className="label">Subject</span>
-          <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Math" />
+    <form className="af-form" onSubmit={handleSubmit}>
+      <div className="af-section">
+        <div className="af-title">Basics</div>
+        <label className="af-field">
+          <span className="af-label">Title</span>
+          <input className="input" placeholder="Math worksheet on fractions" value={title} onChange={(e)=>setTitle(e.target.value)} required />
         </label>
-        <label className="field">
-          <span className="label">Priority</span>
-          <select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}>
-            {priorities.map(p => <option key={p} value={p}>{p[0].toUpperCase()+p.slice(1)}</option>)}
+        <label className="af-field">
+          <span className="af-label">Subject</span>
+          <div className="chip-group" style={{ marginBottom: 6 }}>
+            {subjectsList.map(s => (
+              <button key={s} type="button" className={`btn btn-ghost chip-btn ${subject===s?'active':''}`} onClick={()=>setSubject(s)}>{s}</button>
+            ))}
+            <button type="button" className="btn btn-ghost chip-btn" title="Add new subject" onClick={()=>{ const name=(prompt('New subject name')||'').trim(); if(name) setSubject(name); }}>＋ New</button>
+          </div>
+          <select
+            className="input"
+            value={subject}
+            onChange={(e)=>setSubject(e.target.value)}
+            aria-label="Select subject"
+          >
+            <option value="">Select subject</option>
+            {subjectsList.map(s => <option key={s} value={s}>{s}</option>)}
+            {subject && !subjectsList.includes(subject) && <option value={subject}>{subject}</option>}
           </select>
         </label>
-      </div>
-
-      <div className="form-grid" style={{ marginTop: 8 }}>
-        <label className="field">
-          <span className="label">Due date</span>
-          <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
-        </label>
-        <label className="field">
-          <span className="label">Estimate (min)</span>
-          <div className="chips">
-            {quickDurations.map(m => (
-              <button key={m} type="button" className="btn btn-ghost" onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
+        <label className="af-field">
+          <span className="af-label">Priority</span>
+          <div className="seg-group">
+            {priorities.map(p => (
+              <button key={p} type="button" className={`seg-btn ${priority===p?'seg-active':''}`} onClick={()=>setPriority(p)}>{p[0].toUpperCase()+p.slice(1)}</button>
             ))}
           </div>
-          <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e) => setEstimatedMinutes(e.target.value)} />
         </label>
       </div>
 
-      <label className="field" style={{ marginTop: 8 }}>
-        <span className="label">Notes</span>
-        <textarea className="input" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details, links, or requirements" />
-      </label>
+      <div className="af-section">
+        <div className="af-title">Schedule</div>
+        <div className="af-grid">
+          <div className="af-col">
+            <label className="af-field">
+              <span className="af-label">Due date</span>
+              <InlineDatePicker valueISO={dueAtISO} onChange={setDueAtISO} />
+            </label>
+            <label className="af-field">
+              <span className="af-label">Repeat</span>
+              <select className="input" value={repeat} onChange={(e)=>setRepeat(e.target.value)} aria-label="Repeat">
+                <option value="none">None</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
+          </div>
+          <div className="af-col">
+            <label className="af-field">
+              <span className="af-label">Estimate (min)</span>
+              <div className="chip-group" style={{ marginBottom: 6 }}>
+                {quickDurations.map(m => (
+                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(estimatedMinutes)===m?'active':''}`} onClick={()=>setEstimatedMinutes(m)}>{m}m</button>
+                ))}
+              </div>
+              <input className="input" type="number" min="0" step="5" value={estimatedMinutes} onChange={(e)=>setEstimatedMinutes(e.target.value)} placeholder="60" />
+            </label>
+            <label className="af-field">
+              <span className="af-label">Reminder (min before)</span>
+              <div className="chip-group" style={{ marginBottom: 6 }}>
+                {reminderQuick.map(m => (
+                  <button key={m} type="button" className={`btn btn-ghost chip-btn ${Number(reminderMinutes)===m?'active':''}`} onClick={()=>setReminderMinutes(m)}>{m}m</button>
+                ))}
+              </div>
+              <input className="input" type="number" min="0" step="5" value={reminderMinutes} onChange={(e)=>setReminderMinutes(e.target.value)} placeholder="10" />
+            </label>
+          </div>
+        </div>
+      </div>
 
-      <div className="form-actions" style={{ flexWrap: 'wrap' }}>
+      <div className="af-section">
+        <div className="af-title">Notes</div>
+        <label className="af-field">
+          <span className="af-label">Description</span>
+          <textarea className="input" rows={4} placeholder="Add details, links, or requirements" value={notes} onChange={(e)=>setNotes(e.target.value)} />
+        </label>
+      </div>
+
+      <div className="af-actions">
         <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn">Save task</button>
+        <button type="submit" className="btn">Save assignment</button>
       </div>
     </form>
   );
 }
 
 export default function HomeworkApp() {
-  const [tasks, setTasks] = useState(() => loadTasks());
+  const [tasks, setTasks] = useState(() => loadTasks(getTaskStorageKey((loadSettings().currentUserId)||'local')));
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [search, setSearch] = useState('');
@@ -262,6 +315,11 @@ export default function HomeworkApp() {
   const [selectedNoteId, setSelectedNoteId] = useState(null);
   const [canvasItems, setCanvasItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState(null);
+  const [notesMode, setNotesMode] = useState('editor');
+  const [noteSearch, setNoteSearch] = useState('');
+  const [rteHtml, setRteHtml] = useState('');
+  const editorRef = useRef(null);
+  const imgInputRef = useRef(null);
   // Canvas/Sync settings
   const initialSettings = useMemo(() => loadSettings(), []);
   const [canvasIcsUrl, setCanvasIcsUrl] = useState(initialSettings.canvasIcsUrl || '');
@@ -272,8 +330,10 @@ export default function HomeworkApp() {
   const [autoSyncIntervalMin, setAutoSyncIntervalMin] = useState(initialSettings.autoSyncIntervalMin || 60);
   const [lastSyncStatus, setLastSyncStatus] = useState('');
   const [darkMode, setDarkMode] = useState(Boolean(initialSettings.darkMode));
+  const [currentUserId, setCurrentUserId] = useState(initialSettings.currentUserId || 'local');
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
   const menuRef = useRef(null);
   const settingsRef = useRef(null);
   const [currentTaskId, setCurrentTaskId] = useState(() => localStorage.getItem(IN_PROGRESS_ID_KEY) || '');
@@ -351,6 +411,11 @@ export default function HomeworkApp() {
     'Make it easy to start; momentum will follow.',
     'Aim for consistent, not extreme.',
     'You only need to begin.',
+    'Tiny progress today becomes big progress tomorrow.',
+    'Reset, refocus, restart—right now.',
+    'Your effort compounds; keep going.',
+    'You don\'t have to be fast, just consistent.',
+    'It\'s okay to take it slow. Don\'t stop.',
   ];
   const [messageIdx, setMessageIdx] = useState(() => Math.floor(Math.random() * messages.length));
   const [messageKey, setMessageKey] = useState(() => generateId());
@@ -369,8 +434,8 @@ export default function HomeworkApp() {
   useEffect(() => { setMenuOpen(false); }, [activeTab]);
 
   useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode]);
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId]);
 
   useEffect(() => { setTimeLeft(timerMinutes * 60); }, [timerMinutes]);
   useEffect(() => {
@@ -381,8 +446,8 @@ export default function HomeworkApp() {
   useEffect(() => { if (timeLeft === 0 && timerRunning) setTimerRunning(false); }, [timeLeft, timerRunning]);
 
   useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+    saveTasks(tasks, getTaskStorageKey(currentUserId));
+  }, [tasks, currentUserId]);
 
   // CSV export
   const exportCsv = () => {
@@ -525,11 +590,13 @@ export default function HomeworkApp() {
   const beginAdd = () => {
     setEditingId(null);
     setIsAdding(true);
+    setTaskFormOpen(true);
   };
 
   const cancelForm = () => {
     setIsAdding(false);
     setEditingId(null);
+    setTaskFormOpen(false);
   };
 
   const upsertTask = (task) => {
@@ -540,10 +607,11 @@ export default function HomeworkApp() {
     });
     setIsAdding(false);
     setEditingId(null);
+    setTaskFormOpen(false);
   };
 
   const removeTask = (id) => {
-    if (!window.confirm('Delete this task?')) return;
+    if (!window.confirm('Delete this assignment?')) return;
     setTasks(prev => prev.filter(t => t.id !== id));
   };
 
@@ -619,6 +687,10 @@ export default function HomeworkApp() {
   };
 
   const editingTask = useMemo(() => tasks.find(t => t.id === editingId) || null, [tasks, editingId]);
+
+  useEffect(() => {
+    if (editingId != null) setTaskFormOpen(true);
+  }, [editingId]);
 
   // Calendar helpers
   const startOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
@@ -778,19 +850,31 @@ export default function HomeworkApp() {
     return map;
   }, [tasks]);
 
-  const beginNewNote = () => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); setActiveTab('notes'); };
+  const filteredNotes = useMemo(() => {
+    const q = noteSearch.trim().toLowerCase();
+    if (!q) return notes;
+    const strip = (html) => String(html || '').replace(/<[^>]+>/g, ' ');
+    return notes.filter(n =>
+      String(n.title || '').toLowerCase().includes(q) ||
+      strip(n.body).toLowerCase().includes(q)
+    );
+  }, [notes, noteSearch]);
+
+  const beginNewNote = () => { setEditingNoteId(null); setNoteTitle(''); setNoteBody(''); setRteHtml(''); setActiveTab('notes'); };
   const saveNote = () => {
-    const title = noteTitle.trim(); const body = noteBody.trim(); if (!title && !body) return;
+    const title = noteTitle.trim(); const body = (rteHtml || noteBody).trim(); if (!title && !body) return;
     if (editingNoteId) {
       setNotes(prev => prev.map(n => n.id === editingNoteId ? { ...n, title, body, updatedAt: new Date().toISOString() } : n));
     } else {
-      setNotes(prev => [{ id: generateId(), title, body, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...prev]);
+      const id = generateId();
+      setNotes(prev => [{ id, title, body, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...prev]);
+      setSelectedNoteId(id);
     }
-    setNoteTitle(''); setNoteBody('');
+    setNoteTitle(''); setNoteBody(''); setRteHtml('');
   };
   const editNote = (id) => {
     const n = notes.find(x => x.id === id); if (!n) return;
-    setEditingNoteId(id); setNoteTitle(n.title); setNoteBody(n.body); setActiveTab('notes');
+    setEditingNoteId(id); setNoteTitle(n.title); setNoteBody(n.body); setRteHtml(n.body || ''); setActiveTab('notes');
   };
   const deleteNote = (id) => { if (!window.confirm('Delete this note?')) return; setNotes(prev => prev.filter(n => n.id !== id)); };
 
@@ -958,29 +1042,138 @@ export default function HomeworkApp() {
     return () => mq.removeEventListener('change', apply);
   }, []);
 
+  useEffect(() => {
+    const onKey = (e) => {
+      if (activeTab !== 'notes' || notesMode !== 'editor') return;
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+      if (e.key.toLowerCase() === 'b') { e.preventDefault(); document.execCommand('bold'); }
+      if (e.key.toLowerCase() === 'i') { e.preventDefault(); document.execCommand('italic'); }
+      if (e.key.toLowerCase() === 'u') { e.preventDefault(); document.execCommand('underline'); }
+      if (e.key.toLowerCase() === 's') { e.preventDefault(); saveNote(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeTab, notesMode, saveNote]);
+
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authStatus, setAuthStatus] = useState('');
+
+  const supaSignUp = useCallback(async () => {
+    if (!supabase) { setAuthStatus('Supabase not configured'); return; }
+    try {
+      const { data, error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+      if (error) throw error;
+      setAuthStatus('Check your email to confirm');
+    } catch (e) { setAuthStatus(e.message); }
+  }, [authEmail, authPassword]);
+  const supaSignIn = useCallback(async () => {
+    if (!supabase) { setAuthStatus('Supabase not configured'); return; }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      if (error) throw error;
+      setAuthStatus('Signed in');
+      setCurrentUserId(data.user?.id || 'local');
+    } catch (e) { setAuthStatus(e.message); }
+  }, [authEmail, authPassword]);
+  const supaSignOut = useCallback(async () => {
+    if (!supabase) return; await supabase.auth.signOut(); setAuthStatus('Signed out'); setCurrentUserId('local');
+  }, []);
+
+  // Optional: sync tasks to Supabase tasks table
+  const supaSyncTasks = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) { setAuthStatus('Sign in to sync'); return; }
+      const payload = tasks.map(t => ({ ...t, user_id: user.id }));
+      // Upsert into 'tasks' table (schema should exist)
+      const { error } = await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
+      if (error) throw error; setAuthStatus('Synced to cloud');
+    } catch (e) { setAuthStatus(`Sync failed: ${e.message}`); }
+  }, [tasks]);
+
+  const supaOAuth = useCallback(async (provider) => {
+    if (!supabase) { setAuthStatus('Supabase not configured'); return; }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
+      if (error) throw error;
+      setAuthStatus('Redirecting to provider…');
+    } catch (e) { setAuthStatus(e.message); }
+  }, []);
+
+  const [settingsTab, setSettingsTab] = useState('general'); // general | account | data | integrations | sync
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef(null);
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
-        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>School Planner</div>
+        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}></div>
         <div className="center">
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <button type="button" className="icon-btn filter" title="Filters" aria-expanded={filtersOpen} onClick={(e)=>{ e.stopPropagation(); setFiltersOpen(v=>!v); }} style={{ marginLeft: 8 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5h18l-7 8v5l-4-2v-3L3 5z"/></svg>
+          </button>
+          {filtersOpen && (
+            <div ref={filtersRef} className="dropdown filter-dropdown" role="menu" style={{ position:'absolute', top: 54, left: '50%', transform:'translateX(-50%)', minWidth: 280 }} onClick={(e)=>e.stopPropagation()}>
+              <div className="item" role="menuitem" style={{ pointerEvents: 'none', opacity: 0.8 }}>Filters</div>
+              <div className="item" role="menuitem">
+                <span style={{ flex: 1 }}>Status</span>
+                <select className="input" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}>
+                  <option value="all">All</option>
+                  <option value="todo">To do</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
+              <div className="item" role="menuitem">
+                <span style={{ flex: 1 }}>Subject</span>
+                <select className="input" value={subjectFilter} onChange={(e)=>setSubjectFilter(e.target.value)}>
+                  <option value="all">All</option>
+                  {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="item" role="menuitem">
+                <span style={{ flex: 1 }}>Sort</span>
+                <select className="input" value={sortBy} onChange={(e)=>setSortBy(e.target.value)}>
+                  <option value="due">Due</option>
+                  <option value="priority">Priority</option>
+                  <option value="status">Status</option>
+                  <option value="updated">Updated</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
         <div className="right">
-          <button className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
-          <button className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
-          <button className={`icon-btn ${activeTab==='notes' ? 'active' : ''}`} title="Notes" aria-pressed={activeTab==='notes'} onClick={() => setActiveTab('notes')}>📝</button>
-          <button className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
-          <button className="icon-btn" title="Add task" onClick={beginAdd}>＋</button>
-          <button className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
+          <button type="button" className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
+          <button type="button" className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
+                      
+          <button type="button" className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
+          
+          <button type="button" className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
             <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportJson(); }}>Export JSON</button>
-              <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); exportCsv(); }}>Export CSV</button>
+              <div className="item" role="menuitem" style={{ pointerEvents: 'none', opacity: 0.8 }}>Quick login</div>
+              <div className="item" role="menuitem" style={{ display:'grid', gap:6 }}>
+                <button className="btn" onClick={()=>supaOAuth('google')}>Continue with Google</button>
+                <button className="btn" onClick={()=>supaOAuth('azure')}>Continue with Microsoft</button>
+              </div>
+              <div className="item" role="menuitem" style={{ display:'grid', gap:6 }}>
+                <input className="input" placeholder="Email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} />
+                <input className="input" type="password" placeholder="Password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} />
+                <div style={{ display:'flex', gap:6 }}>
+                  <button className="btn" onClick={supaSignIn}>Sign in</button>
+                  <button className="btn btn-ghost" onClick={supaSignUp}>Sign up</button>
+                  <button className="btn btn-ghost" onClick={supaSignOut}>Sign out</button>
+                </div>
+                <div className="settings-note">{authStatus || (supabase ? '—' : 'Supabase not configured')}</div>
+              </div>
               <hr />
-              <label className="item file-label" role="menuitem">
-                <span>Import JSON</span>
-                <input tabIndex={menuOpen ? 0 : -1} type="file" accept="application/json" onChange={(e) => { setMenuOpen(false); importJson(e); }} />
-              </label>
               <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</button>
             </div>
           )}
@@ -993,7 +1186,7 @@ export default function HomeworkApp() {
             <div className="hero-message">
               <h1 key={messageKey} className="hero-title slide-in">{messages[messageIdx]}</h1>
             </div>
-            <p className="hero-subtitle">Stay consistent. The habits make the grade.</p>
+            <p className="hero-subtitle">Plan smarter. Track assignments, deadlines, and progress at a glance.</p>
           </div>
           <div className="stat-cards">
             <div className="stat-card">
@@ -1029,10 +1222,12 @@ export default function HomeworkApp() {
         </div>
       )}
 
-      {(isAdding || editingTask) && (
-        <div className="panel slide-down" onClick={() => setMenuOpen(false)}>
-          <div className="panel-title">{editingTask ? 'Edit task' : 'New task'}</div>
-          <TaskForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} />
+      {taskFormOpen && (
+        <div className="modal" onClick={cancelForm}>
+          <div className="panel modal-panel slide-down" onClick={(e)=>e.stopPropagation()}>
+            <div className="panel-title">{editingTask ? 'Edit assignment' : 'New assignment'}</div>
+            <AssignmentForm initialTask={editingTask || defaultNewTask()} onSave={upsertTask} onCancel={cancelForm} subjectsList={subjects} />
+          </div>
         </div>
       )}
 
@@ -1050,20 +1245,30 @@ export default function HomeworkApp() {
             {monthDays.map((d) => {
               const key = d.toDateString();
               const dayTasks = tasksByDay.get(key) || [];
+              const fullLabel = `${d.toLocaleDateString()} — ${dayTasks.length} task(s)`;
               return (
-                <div className="calendar-cell" key={key}>
+                <div className="calendar-cell day-wrap" key={key} tabIndex={0}>
                   <div className="calendar-date">{d.getDate()}</div>
                   <div className="calendar-tasks">
                     {dayTasks.map(t => (
                       <div key={t.id} className={`cal-task ${t.status==='done' ? 'done' : ''}`}>{t.title}</div>
                     ))}
                   </div>
+                  <div className="day-tooltip">
+                    <div className="day-tip-title">{fullLabel}</div>
+                    <div className="day-tip-list">
+                      {dayTasks.slice(0,6).map(t => (
+                        <div key={t.id} className="day-tip-item">• {t.title}</div>
+                      ))}
+                      {dayTasks.length > 6 && <div className="day-tip-more">+ {dayTasks.length - 6} more…</div>}
+                    </div>
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
-      ) : activeTab === 'notes' ? (
+      ) : false ? (
         <div className="notes-layout-left fade-in" onClick={() => setMenuOpen(false)} style={{ ['--notes-sidebar-w']: leftCollapsed ? '56px' : '260px' }}>
           <button className="btn notes-left-toggle" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
           <aside className={`notes-left ${leftCollapsed ? 'collapsed' : ''}`}>
@@ -1072,13 +1277,13 @@ export default function HomeworkApp() {
               <button className="btn btn-ghost" onClick={() => setLeftCollapsed(c => !c)}>{leftCollapsed ? '→' : '←'}</button>
             </div>
             <div className="notes-left-body">
-              {notes.map(n => (
+              {filteredNotes.map(n => (
                 <div key={n.id} className={`notes-left-item ${selectedNoteId===n.id ? 'active':''}`} onClick={() => setSelectedNoteId(n.id)} onDoubleClick={() => { const title=prompt('Rename note', n.title||'')??n.title; setNotes(prev=>prev.map(x=>x.id===n.id?{...x,title,updatedAt:new Date().toISOString()}:x)); }}>
                   <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title||'Untitled'}</div>
                   {!leftCollapsed && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>{new Date(n.updatedAt||n.createdAt).toLocaleString()}</div>}
                 </div>
               ))}
-              {notes.length===0 && <div className="empty">No notes yet. Click New.</div>}
+              {filteredNotes.length===0 && <div className="empty">No notes yet. Click New.</div>}
             </div>
             <div className="notes-left-footer">
               {!leftCollapsed && (
@@ -1090,89 +1295,147 @@ export default function HomeworkApp() {
             </div>
           </aside>
           <div className="notes-canvas" onWheel={onWheelZoom}>
-            <div className="canvas-toolbox">
-              <button className={`tool-btn ${tool==='select'?'tool-active':''}`} aria-label="Select" title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
-              <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} aria-label="Pan" title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
-              <button className={`tool-btn ${tool==='text'?'tool-active':''}`} aria-label="Text" title="Text (T)" onClick={()=>setTool('text')}>T</button>
-              <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} aria-label="Rectangle" title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
-              <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} aria-label="Ellipse" title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
-              <button className={`tool-btn ${tool==='line'?'tool-active':''}`} aria-label="Line" title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
-              <button className={`tool-btn ${tool==='image'?'tool-active':''}`} aria-label="Image" title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
+            <div className="notes-topbar">
+              <div className="left">
+                <input className="input" placeholder="Search notes..." value={noteSearch} onChange={(e)=>setNoteSearch(e.target.value)} />
+              </div>
+              <div className="right">
+                <button className={`btn btn-ghost ${notesMode==='editor'?'active':''}`} onClick={()=>setNotesMode('editor')}>Editor</button>
+                <button className={`btn btn-ghost ${notesMode==='canvas'?'active':''}`} onClick={()=>setNotesMode('canvas')}>Canvas</button>
+              </div>
             </div>
-            <div className="inspector-bar">
-              <div className="chip">Text:</div>
-              <select className="input" value={textStyle.font} onChange={(e)=>applyTextStyle('font', e.target.value)}>
-                <option value="sans-serif">Sans</option>
-                <option value="serif">Serif</option>
-                <option value="monospace">Mono</option>
-              </select>
-              <input className="input" type="number" min="10" max="64" value={textStyle.size} onChange={(e)=>applyTextStyle('size', Number(e.target.value)||16)} />
-              <input className="input" type="color" value={textStyle.color} onChange={(e)=>applyTextStyle('color', e.target.value)} />
-              <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
-              <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
-            </div>
-            <div className="canvas-zoom">
-              <button className="zoom-btn" onClick={()=>setZoom(z=>Math.max(0.4, z-0.1))}>−</button>
-              <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
-              <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
-            </div>
-            <div className="canvas-overlay">
-              {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
-              {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
-              <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
-              {overlayQuick.open && selectedNoteId && tool==='select' && (
-                <div className="quick-menu" style={{ left: overlayQuick.x, top: overlayQuick.y }} onClick={(e)=>e.stopPropagation()}>
-                  <div className="quick-item" onClick={() => { addTextItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add text</div>
-                  <div className="quick-item" onClick={() => { addShapeItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add rectangle</div>
-                  <div className="quick-item" onClick={() => { addEllipseItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add ellipse</div>
-                  <div className="quick-item" onClick={() => { addLineItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add line</div>
-                  <div className="quick-item" onClick={() => { triggerImageTool(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Import image</div>
+
+            {notesMode === 'editor' ? (
+              <div className="rte-wrap">
+                <div className="rte-toolbar" role="toolbar" aria-label="Formatting">
+                  <button className="tool-btn" aria-label="Bold (Ctrl+B)" onClick={(e)=>{e.preventDefault(); document.execCommand('bold');}}>B</button>
+                  <button className="tool-btn" aria-label="Italic (Ctrl+I)" onClick={(e)=>{e.preventDefault(); document.execCommand('italic');}}><i>I</i></button>
+                  <button className="tool-btn" aria-label="Underline (Ctrl+U)" onClick={(e)=>{e.preventDefault(); document.execCommand('underline');}}><u>U</u></button>
+                  <button className="tool-btn" aria-label="Bulleted list" onClick={(e)=>{e.preventDefault(); document.execCommand('insertUnorderedList');}}>• List</button>
+                  <select className="input" aria-label="Font" onChange={(e)=>document.execCommand('fontName', false, e.target.value)}>
+                    <option value="">Font</option>
+                    <option value="Arial">Arial</option>
+                    <option value="Georgia">Georgia</option>
+                    <option value="Times New Roman">Times</option>
+                    <option value="Courier New">Courier</option>
+                    <option value="Verdana">Verdana</option>
+                  </select>
+                  <select className="input" aria-label="Size" onChange={(e)=>document.execCommand('fontSize', false, e.target.value)}>
+                    <option value="3">Size</option>
+                    <option value="2">Small</option>
+                    <option value="3">Normal</option>
+                    <option value="4">Large</option>
+                    <option value="5">X-Large</option>
+                  </select>
+                  <button className="tool-btn" aria-label="Insert link" onClick={(e)=>{e.preventDefault(); const url=prompt('URL'); if(url) document.execCommand('createLink',false,url);}}>Link</button>
+                  <button className="tool-btn" aria-label="Insert image" onClick={(e)=>{e.preventDefault(); imgInputRef.current?.click();}}>Image</button>
+                  <input ref={imgInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={(e)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ document.execCommand('insertImage', false, r.result); }; r.readAsDataURL(f); e.target.value=''; }} />
+                  <button className="tool-btn" aria-label="Undo (Ctrl+Z)" onClick={(e)=>{e.preventDefault(); document.execCommand('undo');}}>Undo</button>
+                  <button className="tool-btn" aria-label="Redo (Ctrl+Y)" onClick={(e)=>{e.preventDefault(); document.execCommand('redo');}}>Redo</button>
                 </div>
-              )}
-              {/* Render connections in overlay space */}
-              {connections.map(c => {
-                const a = getItemCenter(c.fromId); const b = getItemCenter(c.toId);
-                return <svg key={c.id} style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
-                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(37,99,235,0.9)" strokeWidth="2" />
-                </svg>;
-              })}
-              {drawingConn && (
-                <svg style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
-                  <line x1={getItemCenter(drawingConn.fromId).x} y1={getItemCenter(drawingConn.fromId).y} x2={drawingConn.x} y2={drawingConn.y} stroke="rgba(37,99,235,0.6)" strokeDasharray="6 4" strokeWidth="2" />
-                </svg>
-              )}
-            </div>
-            <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') openQuickAt(e.clientX, e.clientY); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
-              {canvasItems.map(it => (
-                <div key={it.id}
-                  className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
-                  style={{ left: it.x, top: it.y, width: it.w, height: it.h }}
-                  onPointerDown={(e) => onPointerDown(e, it.id, 'move')}
-                >
-                  {it.type === 'text' ? (
-                    <>
-                      <textarea
-                        className="canvas-text"
-                        value={it.text}
-                        onChange={(e) => updateText(it.id, e.target.value)}
-                        style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
-                      />
-                      <button className="btn btn-ghost" style={{ position: 'absolute', right: -36, top: '50%', transform: 'translateY(-50%)' }} onPointerDown={(e)=>startConnection(it.id, e)}>→</button>
-                    </>
-                  ) : it.type === 'image' ? (
-                    <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
-                  ) : it.type === 'ellipse' ? (
-                    <div style={{ width: '100%', height: '100%', borderRadius: 9999, background: it.fill }} />
-                  ) : it.type === 'line' ? (
-                    <div style={{ width: '100%', height: 2, background: it.stroke }} />
-                  ) : (
-                    <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
-                  )}
-                  <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
+                <div
+                  ref={editorRef}
+                  className="rte-editor"
+                  contentEditable
+                  role="textbox"
+                  aria-multiline="true"
+                  placeholder="Write your notes here..."
+                  onInput={(e)=>{ const html=e.currentTarget.innerHTML; setRteHtml(html); if(selectedNoteId){ setNotes(prev=>prev.map(n=> n.id===selectedNoteId ? { ...n, body: html, updatedAt:new Date().toISOString() } : n)); }}}
+                  dangerouslySetInnerHTML={{ __html: (notes.find(n=>n.id===selectedNoteId)?.body)||rteHtml }}
+                />
+                <div className="rte-actions">
+                  <input className="input" placeholder="Note title" value={noteTitle} onChange={(e)=>setNoteTitle(e.target.value)} />
+                  <button className="btn" onClick={saveNote}>Save</button>
                 </div>
-              ))}
-              {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />}
-            </div>
+              </div>
+            ) : (
+              <>
+                <div className="canvas-stage">
+                  <div className="canvas-toolbox">
+                    <button className={`tool-btn ${tool==='select'?'tool-active':''}`} aria-label="Select" title="Select (V)" onClick={()=>setTool('select')}>🖱️</button>
+                    <button className={`tool-btn ${tool==='pan'?'tool-active':''}`} aria-label="Pan" title="Pan (H)" onClick={()=>setTool('pan')}>✋</button>
+                    <button className={`tool-btn ${tool==='text'?'tool-active':''}`} aria-label="Text" title="Text (T)" onClick={()=>setTool('text')}>T</button>
+                    <button className={`tool-btn ${tool==='rect'?'tool-active':''}`} aria-label="Rectangle" title="Rectangle (R)" onClick={()=>setTool('rect')}>▭</button>
+                    <button className={`tool-btn ${tool==='ellipse'?'tool-active':''}`} aria-label="Ellipse" title="Ellipse (E)" onClick={()=>{ setTool('ellipse'); addEllipseItem(); }}>◯</button>
+                    <button className={`tool-btn ${tool==='line'?'tool-active':''}`} aria-label="Line" title="Line (L)" onClick={()=>{ setTool('line'); addLineItem(); }}>／</button>
+                    <button className={`tool-btn ${tool==='image'?'tool-active':''}`} aria-label="Image" title="Image (I)" onClick={()=>{ setTool('image'); triggerImageTool(); }}>🖼️</button>
+                  </div>
+                  <div className="inspector-bar">
+                    <div className="chip">Text:</div>
+                    <select className="input" value={textStyle.font} onChange={(e)=>applyTextStyle('font', e.target.value)}>
+                      <option value="sans-serif">Sans</option>
+                      <option value="serif">Serif</option>
+                      <option value="monospace">Mono</option>
+                    </select>
+                    <input className="input" type="number" min="10" max="64" value={textStyle.size} onChange={(e)=>applyTextStyle('size', Number(e.target.value)||16)} />
+                    <input className="input" type="color" value={textStyle.color} onChange={(e)=>applyTextStyle('color', e.target.value)} />
+                    <button className="btn btn-ghost" disabled={!selectedItemId} onClick={duplicateItem}>Duplicate</button>
+                    <button className="btn btn-danger" disabled={!selectedItemId} onClick={deleteSelected}>Delete</button>
+                  </div>
+                  <div className="canvas-zoom">
+                    <button className="zoom-btn" onClick={()=>setZoom(z=>Math.max(0.4, z-0.1))}>−</button>
+                    <div className="chip" style={{ minWidth: 46, textAlign: 'center' }}>{Math.round(zoom*100)}%</div>
+                    <button className="zoom-btn" onClick={()=>setZoom(z=>Math.min(2, z+0.1))}>+</button>
+                  </div>
+                  <div className="canvas-overlay">
+                    {!selectedNoteId && <div className="canvas-hint">Select a note to begin</div>}
+                    {selectedNoteId && canvasItems.length===0 && <div className="canvas-hint">Double-click to add text or single-click for options</div>}
+                    <div className="canvas-status" style={{ right: 'unset', left: 60 }}>{(canvasItems.length)} item(s)</div>
+                    {overlayQuick.open && selectedNoteId && tool==='select' && (
+                      <div className="quick-menu" style={{ left: overlayQuick.x, top: overlayQuick.y }} onClick={(e)=>e.stopPropagation()}>
+                        <div className="quick-item" onClick={() => { addTextItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add text</div>
+                        <div className="quick-item" onClick={() => { addShapeItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add rectangle</div>
+                        <div className="quick-item" onClick={() => { addEllipseItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add ellipse</div>
+                        <div className="quick-item" onClick={() => { addLineItem(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Add line</div>
+                        <div className="quick-item" onClick={() => { triggerImageTool(); setOverlayQuick({ open:false, x:0, y:0 }); }}>Import image</div>
+                      </div>
+                    )}
+                    {connections.map(c => {
+                      const a = getItemCenter(c.fromId); const b = getItemCenter(c.toId);
+                      return <svg key={c.id} style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+                        <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="rgba(37,99,235,0.9)" strokeWidth="2" />
+                      </svg>;
+                    })}
+                    {drawingConn && (
+                      <svg style={{ position:'absolute', left:0, top:0, width:'100%', height:'100%', pointerEvents:'none' }}>
+                        <line x1={getItemCenter(drawingConn.fromId).x} y1={getItemCenter(drawingConn.fromId).y} x2={drawingConn.x} y2={drawingConn.y} stroke="rgba(37,99,235,0.6)" strokeDasharray="6 4" strokeWidth="2" />
+                      </svg>
+                    )}
+                  </div>
+                  <div ref={canvasRef} className="canvas-inner" onDoubleClick={(e)=>{ if (tool==='text') handleCanvasDoubleClick(e); }} onPointerDown={onCanvasPointerDown} onClick={(e)=>{ if (tool==='select') openQuickAt(e.clientX, e.clientY); }} style={{ transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
+                    {canvasItems.map(it => (
+                      <div key={it.id}
+                        className={`canvas-item ${selectedItemId===it.id ? 'selected' : ''}`}
+                        style={{ left: it.x, top: it.y, width: it.w, height: it.h }}
+                        onPointerDown={(e) => onPointerDown(e, it.id, 'move')}
+                      >
+                        {it.type === 'text' ? (
+                          <>
+                            <textarea
+                              className="canvas-text"
+                              value={it.text}
+                              onChange={(e) => updateText(it.id, e.target.value)}
+                              style={{ width: '100%', height: '100%', fontFamily: (it.style?.font)||textStyle.font, fontSize: (it.style?.size)||textStyle.size, color: (it.style?.color)||textStyle.color }}
+                            />
+                            <button className="btn btn-ghost" style={{ position: 'absolute', right: -36, top: '50%', transform: 'translateY(-50%)' }} onPointerDown={(e)=>startConnection(it.id, e)}>→</button>
+                          </>
+                        ) : it.type === 'image' ? (
+                          <img alt="note" src={it.src} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} />
+                        ) : it.type === 'ellipse' ? (
+                          <div style={{ width: '100%', height: '100%', borderRadius: 9999, background: it.fill }} />
+                        ) : it.type === 'line' ? (
+                          <div style={{ width: '100%', height: 2, background: it.stroke }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', borderRadius: 6, background: it.fill }} />
+                        )}
+                        <div className="resize" onPointerDown={(e) => onPointerDown(e, it.id, 'resize')}></div>
+                      </div>
+                    ))}
+                    {marquee && <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} />}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -1220,74 +1483,142 @@ export default function HomeworkApp() {
         <div className="modal" onClick={() => setSettingsOpen(false)}>
           <div ref={settingsRef} className="panel modal-panel slide-down" role="dialog" aria-modal="true" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
             <div className="panel-title">Settings</div>
-            <div className="settings-grid">
-              <label className="field">
-                <span className="label">Theme</span>
-                <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Density</span>
-                <select className="input" onChange={(e) => {
-                  const density = e.target.value; const root = document.documentElement;
-                  if (density === 'comfortable') root.style.setProperty('--border', '#e2e8f0');
-                  if (density === 'compact') root.style.setProperty('--border', '#cbd5e1');
-                }}>
-                  <option value="comfortable">Comfortable</option>
-                  <option value="compact">Compact</option>
-                </select>
-              </label>
-              <label className="field wide">
-                <span className="label">Import assignments from an ICS file (Canvas)</span>
-                <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
-                  const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
-                  const count = importIcsText(text, 'Canvas'); e.target.value = ''; alert(`Imported ${count} assignment(s).`);
-                }} />
-              </label>
-              <label className="field wide">
-                <span className="label">ICS feed URL</span>
-                <input className="input" placeholder="https://yourcanvas.example.edu/feeds/...user.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
-                <div className="settings-actions">
-                  <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
-                  <span className="settings-note">May be blocked by CORS. If blocked, download and import file above.</span>
-                </div>
-              </label>
-              <label className="field">
-                <span className="label">Canvas base URL</span>
-                <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
-              </label>
-              <label className="field">
-                <span className="label">Access token</span>
-                <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
-              </label>
-              <div className="settings-actions">
-                <button className="btn" onClick={syncFromCanvasApi}>Sync via API</button>
-                <span className="settings-note">Direct connection to Canvas. Nothing leaves your browser.</span>
-              </div>
-              <label className="field">
-                <span className="label">Auto-sync</span>
-                <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
-                  <option value="off">Off</option>
-                  <option value="on">On</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Source</span>
-                <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
-                  <option value="ics">ICS URL</option>
-                  <option value="api">Canvas API</option>
-                </select>
-              </label>
-              <label className="field">
-                <span className="label">Interval (minutes)</span>
-                <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
-              </label>
-              <div className="field wide">
-                <span className="label">Last sync</span>
-                <div className="settings-note">{lastSyncStatus || '—'}</div>
-              </div>
+            <div className="settings-tabs">
+              <button className={`settings-tab ${settingsTab==='general'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('general')}>General</button>
+              <button className={`settings-tab ${settingsTab==='account'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('account')}>Account</button>
+              <button className={`settings-tab ${settingsTab==='data'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('data')}>Data</button>
+              <button className={`settings-tab ${settingsTab==='integrations'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('integrations')}>Integrations</button>
+              <button className={`settings-tab ${settingsTab==='sync'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('sync')}>Sync</button>
+            </div>
+            <div className="settings-body">
+              {settingsTab === 'general' && (
+                <>
+                  <div className="settings-section">
+                    <div className="settings-title">Appearance</div>
+                    <div className="settings-row inline">
+                      <label className="field">
+                        <span className="label">Theme</span>
+                        <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
+                          <option value="light">Light</option>
+                          <option value="dark">Dark</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="settings-desc">Switch between light and dark themes.</div>
+                  </div>
+                </>
+              )}
+              {settingsTab === 'account' && (
+                <>
+                  <div className="settings-section">
+                    <div className="settings-title">User</div>
+                    <div className="settings-row inline">
+                      <label className="field">
+                        <span className="label">User ID</span>
+                        <input className="input" placeholder="local" value={currentUserId} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
+                      </label>
+                    </div>
+                    <div className="settings-desc">Local data is namespaced by User ID.</div>
+                  </div>
+                  <div className="settings-section">
+                    <div className="settings-title">Authentication</div>
+                    <div className="settings-row inline">
+                      <input className="input" placeholder="Email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} />
+                      <input className="input" type="password" placeholder="Password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} />
+                      <button className="btn" onClick={supaSignUp}>Sign up</button>
+                      <button className="btn" onClick={supaSignIn}>Sign in</button>
+                      <button className="btn btn-ghost" onClick={supaSignOut}>Sign out</button>
+                    </div>
+                    <div className="settings-note">{authStatus || (supabase ? '—' : 'Supabase not configured')}</div>
+                  </div>
+                </>
+              )}
+              {settingsTab === 'data' && (
+                <>
+                  <div className="settings-section">
+                    <div className="settings-title">Data</div>
+                    <div className="settings-row">
+                      <div className="settings-desc">Backup and restore your assignments.</div>
+                      <div className="settings-actions">
+                        <button className="btn" onClick={exportJson}>Export JSON</button>
+                        <button className="btn" onClick={exportCsv}>Export CSV</button>
+                        <label className="btn btn-ghost file-label">
+                          Import JSON
+                          <input type="file" accept="application/json" onChange={importJson} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+              {settingsTab === 'integrations' && (
+                <>
+                  <div className="settings-section">
+                    <div className="settings-title">Canvas</div>
+                    <div className="settings-row">
+                      <label className="field">
+                        <span className="label">Import from ICS</span>
+                        <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
+                          const count = importIcsText(text, 'Canvas'); e.target.value = ''; alert(`Imported ${count} assignment(s).`);
+                        }} />
+                      </label>
+                      <label className="field">
+                        <span className="label">ICS feed URL</span>
+                        <input className="input" placeholder="https://yourcanvas.example.edu/feeds/...user.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
+                        <div className="settings-actions">
+                          <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
+                          <span className="settings-note">May be blocked by CORS. If blocked, download and import file above.</span>
+                        </div>
+                      </label>
+                      <label className="field">
+                        <span className="label">Canvas base URL</span>
+                        <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span className="label">Access token</span>
+                        <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+              {settingsTab === 'sync' && (
+                <>
+                  <div className="settings-section">
+                    <div className="settings-title">Auto-sync</div>
+                    <div className="settings-row inline">
+                      <label className="field">
+                        <span className="label">Enable</span>
+                        <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
+                          <option value="off">Off</option>
+                          <option value="on">On</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span className="label">Source</span>
+                        <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
+                          <option value="ics">ICS URL</option>
+                          <option value="api">Canvas API</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span className="label">Interval (min)</span>
+                        <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
+                      </label>
+                    </div>
+                    <div className="settings-actions">
+                      <button className="btn" onClick={syncFromCanvasApi}>Sync via API</button>
+                      <button className="btn" onClick={supaSyncTasks}>Sync tasks to cloud</button>
+                      <span className="settings-note">Direct connection to Canvas or Supabase. Nothing leaves your browser except the intended API calls.</span>
+                    </div>
+                    <div className="settings-row">
+                      <span className="settings-title">Status</span>
+                      <div className="settings-note">{lastSyncStatus || '—'}</div>
+                    </div>
+                  </div>
+                </>
+              )}
               <div className="settings-actions">
                 <button className="btn btn-ghost" onClick={() => setSettingsOpen(false)}>Close</button>
               </div>
@@ -1296,18 +1627,22 @@ export default function HomeworkApp() {
         </div>
       )}
 
-      <footer className="hw-footer">
-        <div>Privacy: No accounts, no tracking; your data stays on this device.</div>
-      </footer>
+      <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
     </div>
   );
 }
 
+
 function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onComplete, subjectColors }) {
   const dueDescriptor = formatDueDescriptor(task.dueAt);
   const dueDate = task.dueAt ? new Date(task.dueAt) : null;
-  const dueDateStr = dueDate ? dueDate.toLocaleString() : 'No date';
+  const dueDateFull = dueDate ? dueDate.toLocaleString() : 'No date';
   const isOverdue = task.status !== 'done' && dueDate && dueDate < new Date();
+  const subjectChipStyle = {
+    borderColor: '#e2e8f0',
+    background: task.subject ? 'rgba(37,99,235,0.06)' : 'rgba(255,255,255,0.02)',
+    color: subjectColors.get(task.subject) ? subjectColors.get(task.subject) : 'var(--text-dim)'
+  };
 
   return (
     <div className={`card ${isOverdue ? 'card-overdue' : ''}`}>
@@ -1318,14 +1653,7 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
             <div className="title">{task.title}</div>
             <div className="meta">
               {task.subject && (
-                <span
-                  className="chip subject-chip"
-                  style={{
-                    borderColor: '#e2e8f0',
-                    background: `${(task.subject || '').length ? 'rgba(37,99,235,0.06)' : 'rgba(255,255,255,0.02)'}`,
-                    color: subjectColors.get(task.subject) ? subjectColors.get(task.subject) : 'var(--text-dim)'
-                  }}
-                >{task.subject}</span>
+                <span className="chip subject-chip" style={subjectChipStyle}>{task.subject}</span>
               )}
               <PriorityChip priority={task.priority} />
               <StatusBadge status={task.status} />
@@ -1344,8 +1672,10 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
           </div>
         )}
         <div className="due-row">
-          <span className="due-label">{dueDescriptor}</span>
-          <span className="due-date">{dueDateStr}</span>
+          <div className="due-wrap" tabIndex={0}>
+            <span className="due-label" style={{ whiteSpace: 'nowrap' }}>{dueDescriptor}</span>
+            {dueDateFull && <div className="due-tooltip">{dueDateFull}</div>}
+          </div>
         </div>
       </div>
       <div className="card-actions">
@@ -1357,9 +1687,9 @@ function TaskCard({ task, onEdit, onDelete, onToggleDone, onStart, onPause, onCo
         ) : (
           <>
             {task.status !== 'done' && (
-              <button className="btn btn-outline" onClick={onStart}>Start</button>
+              <button className="btn" onClick={onStart}>Start</button>
             )}
-            <button className="btn btn-outline" onClick={onEdit}>Edit</button>
+            <button className="btn btn-ghost" onClick={onEdit}>Edit</button>
             <button className="btn btn-danger" onClick={onDelete}>Delete</button>
           </>
         )}

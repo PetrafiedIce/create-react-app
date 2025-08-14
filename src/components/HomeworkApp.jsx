@@ -1107,7 +1107,7 @@ export default function HomeworkApp() {
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
-        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>School Planner</div>
+        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}></div>
         <div className="center">
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
           <button type="button" className="icon-btn filter" title="Filters" aria-expanded={filtersOpen} onClick={(e)=>{ e.stopPropagation(); setFiltersOpen(v=>!v); }} style={{ marginLeft: 8 }}>
@@ -1149,7 +1149,7 @@ export default function HomeworkApp() {
           <button type="button" className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
                       
           <button type="button" className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
-          <button type="button" className="icon-btn" title="Add assignment" onClick={beginAdd}>＋</button>
+          
           <button type="button" className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
             <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
@@ -1181,7 +1181,7 @@ export default function HomeworkApp() {
             <div className="hero-message">
               <h1 key={messageKey} className="hero-title slide-in">{messages[messageIdx]}</h1>
             </div>
-            <p className="hero-subtitle">Stay consistent. The habits make the grade.</p>
+            <p className="hero-subtitle">Plan smarter. Track assignments, deadlines, and progress at a glance.</p>
           </div>
           <div className="stat-cards">
             <div className="stat-card">

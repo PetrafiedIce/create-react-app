@@ -1,10 +1,16 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 const STORAGE_KEY = 'homework_tracker_v1';
 const SETTINGS_KEY = 'homework_settings_v1';
 const IN_PROGRESS_ID_KEY = 'homework_current_task_id';
 const NOTES_KEY = 'homework_notes_v1';
 const NOTES_CANVAS_KEY_PREFIX = 'homework_note_canvas_';
+
+// Supabase client (URL from env; will fallback to local only if not set)
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || '';
+const SUPABASE_ANON = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
+const supabase = (SUPABASE_URL && SUPABASE_ANON) ? createClient(SUPABASE_URL, SUPABASE_ANON) : null;
 
 function generateId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -1046,6 +1052,44 @@ export default function HomeworkApp() {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeTab, notesMode, saveNote]);
 
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authStatus, setAuthStatus] = useState('');
+
+  const supaSignUp = useCallback(async () => {
+    if (!supabase) { setAuthStatus('Supabase not configured'); return; }
+    try {
+      const { data, error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+      if (error) throw error;
+      setAuthStatus('Check your email to confirm');
+    } catch (e) { setAuthStatus(e.message); }
+  }, [authEmail, authPassword]);
+  const supaSignIn = useCallback(async () => {
+    if (!supabase) { setAuthStatus('Supabase not configured'); return; }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+      if (error) throw error;
+      setAuthStatus('Signed in');
+      setCurrentUserId(data.user?.id || 'local');
+    } catch (e) { setAuthStatus(e.message); }
+  }, [authEmail, authPassword]);
+  const supaSignOut = useCallback(async () => {
+    if (!supabase) return; await supabase.auth.signOut(); setAuthStatus('Signed out'); setCurrentUserId('local');
+  }, []);
+
+  // Optional: sync tasks to Supabase tasks table
+  const supaSyncTasks = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) { setAuthStatus('Sign in to sync'); return; }
+      const payload = tasks.map(t => ({ ...t, user_id: user.id }));
+      // Upsert into 'tasks' table (schema should exist)
+      const { error } = await supabase.from('tasks').upsert(payload, { onConflict: 'id' });
+      if (error) throw error; setAuthStatus('Synced to cloud');
+    } catch (e) { setAuthStatus(`Sync failed: ${e.message}`); }
+  }, [tasks]);
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -1404,8 +1448,22 @@ export default function HomeworkApp() {
               </label>
               <label className="field">
                 <span className="label">Account (User ID)</span>
-                <input className="input" placeholder="local" value={initialSettings.currentUserId || 'local'} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
+                <input className="input" placeholder="local" value={currentUserId} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
               </label>
+              <label className="field wide">
+                <span className="label">Sign in (Supabase)</span>
+                <div className="settings-actions">
+                  <input className="input" placeholder="Email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} />
+                  <input className="input" type="password" placeholder="Password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} />
+                  <button className="btn" onClick={supaSignUp}>Sign up</button>
+                  <button className="btn" onClick={supaSignIn}>Sign in</button>
+                  <button className="btn btn-ghost" onClick={supaSignOut}>Sign out</button>
+                </div>
+                <div className="settings-note">{authStatus || (supabase ? '—' : 'Supabase not configured')}</div>
+              </label>
+              <div className="settings-actions">
+                <button className="btn" onClick={supaSyncTasks}>Sync tasks to cloud</button>
+              </div>
               <label className="field wide">
                 <span className="label">Data</span>
                 <div className="settings-actions">

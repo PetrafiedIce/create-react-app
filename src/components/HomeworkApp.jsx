@@ -1490,27 +1490,39 @@ export default function HomeworkApp() {
               <button className={`settings-tab ${settingsTab==='integrations'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('integrations')}>Integrations</button>
               <button className={`settings-tab ${settingsTab==='sync'?'settings-tab-active':''}`} onClick={()=>setSettingsTab('sync')}>Sync</button>
             </div>
-            <div className="settings-grid">
+            <div className="settings-body">
               {settingsTab === 'general' && (
                 <>
-                  <label className="field">
-                    <span className="label">Theme</span>
-                    <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
-                      <option value="light">Light</option>
-                      <option value="dark">Dark</option>
-                    </select>
-                  </label>
+                  <div className="settings-section">
+                    <div className="settings-title">Appearance</div>
+                    <div className="settings-row inline">
+                      <label className="field">
+                        <span className="label">Theme</span>
+                        <select className="input" value={darkMode ? 'dark' : 'light'} onChange={(e) => setDarkMode(e.target.value === 'dark')}>
+                          <option value="light">Light</option>
+                          <option value="dark">Dark</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="settings-desc">Switch between light and dark themes.</div>
+                  </div>
                 </>
               )}
               {settingsTab === 'account' && (
                 <>
-                  <label className="field">
-                    <span className="label">Account (User ID)</span>
-                    <input className="input" placeholder="local" value={currentUserId} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
-                  </label>
-                  <label className="field wide">
-                    <span className="label">Sign in (Supabase)</span>
-                    <div className="settings-actions">
+                  <div className="settings-section">
+                    <div className="settings-title">User</div>
+                    <div className="settings-row inline">
+                      <label className="field">
+                        <span className="label">User ID</span>
+                        <input className="input" placeholder="local" value={currentUserId} onChange={(e)=>setCurrentUserId(e.target.value.trim()||'local')} />
+                      </label>
+                    </div>
+                    <div className="settings-desc">Local data is namespaced by User ID.</div>
+                  </div>
+                  <div className="settings-section">
+                    <div className="settings-title">Authentication</div>
+                    <div className="settings-row inline">
                       <input className="input" placeholder="Email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} />
                       <input className="input" type="password" placeholder="Password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} />
                       <button className="btn" onClick={supaSignUp}>Sign up</button>
@@ -1518,79 +1530,92 @@ export default function HomeworkApp() {
                       <button className="btn btn-ghost" onClick={supaSignOut}>Sign out</button>
                     </div>
                     <div className="settings-note">{authStatus || (supabase ? '—' : 'Supabase not configured')}</div>
-                  </label>
+                  </div>
                 </>
               )}
               {settingsTab === 'data' && (
                 <>
-                  <label className="field wide">
-                    <span className="label">Data</span>
-                    <div className="settings-actions">
-                      <button className="btn" onClick={exportJson}>Export JSON</button>
-                      <button className="btn" onClick={exportCsv}>Export CSV</button>
-                      <label className="btn btn-ghost file-label">
-                        Import JSON
-                        <input type="file" accept="application/json" onChange={importJson} />
-                      </label>
+                  <div className="settings-section">
+                    <div className="settings-title">Data</div>
+                    <div className="settings-row">
+                      <div className="settings-desc">Backup and restore your assignments.</div>
+                      <div className="settings-actions">
+                        <button className="btn" onClick={exportJson}>Export JSON</button>
+                        <button className="btn" onClick={exportCsv}>Export CSV</button>
+                        <label className="btn btn-ghost file-label">
+                          Import JSON
+                          <input type="file" accept="application/json" onChange={importJson} />
+                        </label>
+                      </div>
                     </div>
-                  </label>
+                  </div>
                 </>
               )}
               {settingsTab === 'integrations' && (
                 <>
-                  <label className="field wide">
-                    <span className="label">Import assignments from an ICS file (Canvas)</span>
-                    <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
-                      const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
-                      const count = importIcsText(text, 'Canvas'); e.target.value = ''; alert(`Imported ${count} assignment(s).`);
-                    }} />
-                  </label>
-                  <label className="field">
-                    <span className="label">ICS feed URL</span>
-                    <input className="input" placeholder="https://yourcanvas.example.edu/feeds/...user.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
-                    <div className="settings-actions">
-                      <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
-                      <span className="settings-note">May be blocked by CORS. If blocked, download and import file above.</span>
+                  <div className="settings-section">
+                    <div className="settings-title">Canvas</div>
+                    <div className="settings-row">
+                      <label className="field">
+                        <span className="label">Import from ICS</span>
+                        <input className="input" type="file" accept="text/calendar,.ics" onChange={async (e) => {
+                          const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
+                          const count = importIcsText(text, 'Canvas'); e.target.value = ''; alert(`Imported ${count} assignment(s).`);
+                        }} />
+                      </label>
+                      <label className="field">
+                        <span className="label">ICS feed URL</span>
+                        <input className="input" placeholder="https://yourcanvas.example.edu/feeds/...user.ics" value={canvasIcsUrl} onChange={(e) => setCanvasIcsUrl(e.target.value)} />
+                        <div className="settings-actions">
+                          <button className="btn" onClick={syncFromIcsUrl}>Sync now</button>
+                          <span className="settings-note">May be blocked by CORS. If blocked, download and import file above.</span>
+                        </div>
+                      </label>
+                      <label className="field">
+                        <span className="label">Canvas base URL</span>
+                        <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
+                      </label>
+                      <label className="field">
+                        <span className="label">Access token</span>
+                        <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
+                      </label>
                     </div>
-                  </label>
-                  <label className="field">
-                    <span className="label">Canvas base URL</span>
-                    <input className="input" placeholder="https://yourcanvas.example.edu" value={canvasBaseUrl} onChange={(e) => setCanvasBaseUrl(e.target.value)} />
-                  </label>
-                  <label className="field">
-                    <span className="label">Access token</span>
-                    <input className="input" type="password" placeholder="Paste personal access token" value={canvasToken} onChange={(e) => setCanvasToken(e.target.value)} />
-                  </label>
+                  </div>
                 </>
               )}
               {settingsTab === 'sync' && (
                 <>
-                  <label className="field">
-                    <span className="label">Auto-sync</span>
-                    <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
-                      <option value="off">Off</option>
-                      <option value="on">On</option>
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span className="label">Source</span>
-                    <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
-                      <option value="ics">ICS URL</option>
-                      <option value="api">Canvas API</option>
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span className="label">Interval (minutes)</span>
-                    <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
-                  </label>
-                  <div className="settings-actions">
-                    <button className="btn" onClick={syncFromCanvasApi}>Sync via API</button>
-                    <button className="btn" onClick={supaSyncTasks}>Sync tasks to cloud</button>
-                    <span className="settings-note">Direct connection to Canvas or Supabase. Nothing leaves your browser except the intended API calls.</span>
-                  </div>
-                  <div className="field wide">
-                    <span className="label">Last sync</span>
-                    <div className="settings-note">{lastSyncStatus || '—'}</div>
+                  <div className="settings-section">
+                    <div className="settings-title">Auto-sync</div>
+                    <div className="settings-row inline">
+                      <label className="field">
+                        <span className="label">Enable</span>
+                        <select className="input" value={autoSyncEnabled ? 'on' : 'off'} onChange={(e) => setAutoSyncEnabled(e.target.value === 'on')}>
+                          <option value="off">Off</option>
+                          <option value="on">On</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span className="label">Source</span>
+                        <select className="input" value={autoSyncSource} onChange={(e) => setAutoSyncSource(e.target.value)}>
+                          <option value="ics">ICS URL</option>
+                          <option value="api">Canvas API</option>
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span className="label">Interval (min)</span>
+                        <input className="input" type="number" min="5" step="5" value={autoSyncIntervalMin} onChange={(e) => setAutoSyncIntervalMin(Number(e.target.value)||60)} />
+                      </label>
+                    </div>
+                    <div className="settings-actions">
+                      <button className="btn" onClick={syncFromCanvasApi}>Sync via API</button>
+                      <button className="btn" onClick={supaSyncTasks}>Sync tasks to cloud</button>
+                      <span className="settings-note">Direct connection to Canvas or Supabase. Nothing leaves your browser except the intended API calls.</span>
+                    </div>
+                    <div className="settings-row">
+                      <span className="settings-title">Status</span>
+                      <div className="settings-note">{lastSyncStatus || '—'}</div>
+                    </div>
                   </div>
                 </>
               )}

@@ -190,6 +190,16 @@ body {
 .settings-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .settings-note { font-size: 12px; color: var(--text-dim); }
 
+/* Settings polished layout */
+.settings-body { display: grid; gap: 12px; padding: 12px; }
+.settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; box-shadow: var(--shadow-sm); }
+.settings-title { font-weight: 700; font-size: 13px; color: var(--text); }
+.settings-desc { font-size: 12px; color: var(--text-dim); }
+.settings-row { display: grid; gap: 8px; }
+.settings-row.inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.settings-row .input { min-width: 220px; }
+.settings-actions .btn { min-height: 36px; }
+
 /* Settings tabs */
 .settings-tabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--surface-2); border-radius: 12px 12px 0 0; }
 .settings-tab { background: transparent; border: 1px solid transparent; color: var(--text-dim); padding: 8px 12px; border-radius: 10px; cursor: pointer; }

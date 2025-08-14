@@ -47,8 +47,8 @@ body {
 .hw-title { font-weight: 700; letter-spacing: 0.2px; font-size: 18px; color: var(--text); }
 
 /* Header layout refinements for top bar */
-.hw-header { gap: 12px; }
-.hw-header .center { flex: 1; display: flex; justify-content: center; }
+.hw-header { gap: 12px; position: sticky; }
+.hw-header .center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; }
 .hw-header .center .search { width: clamp(220px, 45vw, 540px); }
 .hw-header .right { display: flex; gap: 8px; align-items: center; position: relative; }
 

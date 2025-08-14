@@ -411,6 +411,11 @@ export default function HomeworkApp() {
     'Make it easy to start; momentum will follow.',
     'Aim for consistent, not extreme.',
     'You only need to begin.',
+    'Tiny progress today becomes big progress tomorrow.',
+    'Reset, refocus, restart—right now.',
+    'Your effort compounds; keep going.',
+    'You don\'t have to be fast, just consistent.',
+    'It\'s okay to take it slow. Don\'t stop.',
   ];
   const [messageIdx, setMessageIdx] = useState(() => Math.floor(Math.random() * messages.length));
   const [messageKey, setMessageKey] = useState(() => generateId());

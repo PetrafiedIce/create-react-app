@@ -1090,6 +1090,15 @@ export default function HomeworkApp() {
     } catch (e) { setAuthStatus(`Sync failed: ${e.message}`); }
   }, [tasks]);
 
+  const supaOAuth = useCallback(async (provider) => {
+    if (!supabase) { setAuthStatus('Supabase not configured'); return; }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.origin } });
+      if (error) throw error;
+      setAuthStatus('Redirecting to provider…');
+    } catch (e) { setAuthStatus(e.message); }
+  }, []);
+
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
@@ -1106,6 +1115,22 @@ export default function HomeworkApp() {
           <button type="button" className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
             <div ref={menuRef} className="dropdown slide-down" role="menu" style={{ background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
+              <div className="item" role="menuitem" style={{ pointerEvents: 'none', opacity: 0.8 }}>Quick login</div>
+              <div className="item" role="menuitem" style={{ display:'grid', gap:6 }}>
+                <button className="btn" onClick={()=>supaOAuth('google')}>Continue with Google</button>
+                <button className="btn" onClick={()=>supaOAuth('azure')}>Continue with Microsoft</button>
+              </div>
+              <div className="item" role="menuitem" style={{ display:'grid', gap:6 }}>
+                <input className="input" placeholder="Email" value={authEmail} onChange={(e)=>setAuthEmail(e.target.value)} />
+                <input className="input" type="password" placeholder="Password" value={authPassword} onChange={(e)=>setAuthPassword(e.target.value)} />
+                <div style={{ display:'flex', gap:6 }}>
+                  <button className="btn" onClick={supaSignIn}>Sign in</button>
+                  <button className="btn btn-ghost" onClick={supaSignUp}>Sign up</button>
+                  <button className="btn btn-ghost" onClick={supaSignOut}>Sign out</button>
+                </div>
+                <div className="settings-note">{authStatus || (supabase ? '—' : 'Supabase not configured')}</div>
+              </div>
+              <hr />
               <button className="item" role="menuitem" onClick={() => { setMenuOpen(false); setSettingsOpen(true); }}>Settings</button>
             </div>
           )}

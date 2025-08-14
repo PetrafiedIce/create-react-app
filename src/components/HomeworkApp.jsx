@@ -1150,6 +1150,15 @@ export default function HomeworkApp() {
   const [newTaskDueISO, setNewTaskDueISO] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(Boolean(initialSettings.notificationsEnabled));
 
+  // Live clock for header (top-left)
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const clockDate = now.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const clockTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   useEffect(() => {
     saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled });
   }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled]);
@@ -1176,7 +1185,9 @@ export default function HomeworkApp() {
   return (
     <div className="hw-app" onClick={() => menuOpen && setMenuOpen(false)}>
       <header className="hw-header" onClick={(e) => e.stopPropagation()}>
-        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}></div>
+        <div className="hw-title" role="button" onClick={() => setActiveTab('planner')}>
+          <span className="clock">{clockDate} • {clockTime}</span>
+        </div>
         <div className="center">
           <input className="input search" aria-label="Search tasks" placeholder="Search title, subject, notes" value={search} onChange={(e) => setSearch(e.target.value)} />
           <button type="button" className="icon-btn filter" title="Filters" aria-expanded={filtersOpen} onClick={(e)=>{ e.stopPropagation(); setFiltersOpen(v=>!v); }} style={{ marginLeft: 8 }}>
@@ -1217,11 +1228,6 @@ export default function HomeworkApp() {
           <button type="button" className={`icon-btn ${activeTab==='planner' ? 'active' : ''}`} title="Planner" aria-pressed={activeTab==='planner'} onClick={() => setActiveTab('planner')}>📋</button>
           <button type="button" className={`icon-btn ${activeTab==='calendar' ? 'active' : ''}`} title="Calendar" aria-pressed={activeTab==='calendar'} onClick={() => setActiveTab('calendar')}>📆</button>
           <button type="button" className={`icon-btn ${activeTab==='notes' ? 'active' : ''}`} title="Notes" aria-pressed={activeTab==='notes'} onClick={() => setActiveTab('notes')}>📝</button>
-          <div className="timer" aria-label="Timer">
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}</span>
-            <button type="button" className="icon-btn" title={timerRunning ? 'Pause' : 'Start'} onClick={() => setTimerRunning(r => !r)}>{timerRunning ? '⏸️' : '▶️'}</button>
-            <button type="button" className="icon-btn" title="Reset" onClick={() => setTimeLeft(timerMinutes * 60)}>⟲</button>
-          </div>
           <button type="button" className="icon-btn" title={darkMode ? 'Light mode' : 'Dark mode'} aria-pressed={darkMode} onClick={() => setDarkMode(d => !d)}>{darkMode ? '🌙' : '☀️'}</button>
           <button type="button" className="icon-btn" title="More" aria-expanded={menuOpen} aria-haspopup="menu" onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o); }}>⋯</button>
           {menuOpen && (
@@ -1540,6 +1546,34 @@ export default function HomeworkApp() {
       )}
 
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
+
+      {/* Bottom-left timer panel */}
+      <div className="timer-panel" role="region" aria-label="Focus timer">
+        {(() => {
+          const total = Math.max(1, timerMinutes * 60);
+          const progressDeg = Math.min(360, Math.max(0, (1 - (timeLeft / total)) * 360));
+          return (
+            <>
+              <div className="timer-circle" style={{ ['--p']: `${progressDeg}deg` }}>
+                <div className="timer-time" aria-live="polite">
+                  {String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}
+                </div>
+              </div>
+              <div className="timer-content">
+                <div className="timer-actions">
+                  <button type="button" className="icon-btn" title={timerRunning ? 'Pause' : 'Start'} onClick={() => setTimerRunning(r => !r)}>{timerRunning ? '⏸️' : '▶️'}</button>
+                  <button type="button" className="icon-btn" title="Reset" onClick={() => setTimeLeft(timerMinutes * 60)}>⟲</button>
+                </div>
+                <div className="chip-group">
+                  {[15, 25, 50].map(m => (
+                    <button key={m} type="button" className={`btn btn-ghost chip-btn ${timerMinutes===m?'active':''}`} onClick={() => setTimerMinutes(m)}>{m}m</button>
+                  ))}
+                </div>
+              </div>
+            </>
+          );
+        })()}
+      </div>
     </div>
   );
 }

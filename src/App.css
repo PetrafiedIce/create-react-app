@@ -541,3 +541,42 @@ body {
 .settings-note { color: var(--text-dim); font-size: 12px; }
 
 .checkbox { width: 16px; height: 16px; }
+
+.clock { font-weight: 700; color: var(--text-dim); }
+
+.timer-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+.timer-circle {
+  --p: 0deg;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background:
+    conic-gradient(var(--primary) var(--p), rgba(148,163,184,0.18) 0deg);
+  display: grid;
+  place-items: center;
+}
+.timer-time {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+.timer-content { display: grid; gap: 8px; }
+.timer-actions { display: inline-flex; gap: 6px; }

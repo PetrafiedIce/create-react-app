@@ -1145,21 +1145,27 @@ export default function HomeworkApp() {
 
   const [newTaskDueISO, setNewTaskDueISO] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(Boolean(initialSettings.notificationsEnabled));
-  const [timerCollapsed, setTimerCollapsed] = useState(typeof initialSettings.timerCollapsed === 'boolean' ? initialSettings.timerCollapsed : true);
+  const [timerCollapsed, setTimerCollapsed] = useState(true);
   const [clockOpen, setClockOpen] = useState(false);
   const [timerOpen, setTimerOpen] = useState(false);
   const defaultTimerPos = useMemo(() => {
-    const safeY = typeof window !== 'undefined' ? Math.max(16, (window.innerHeight || 600) - 120) : 16;
-    return initialSettings.timerPos && typeof initialSettings.timerPos.x === 'number' && typeof initialSettings.timerPos.y === 'number'
-      ? initialSettings.timerPos
-      : { x: 16, y: safeY };
-  }, [initialSettings.timerPos]);
+    const wh = typeof window !== 'undefined' ? (window.innerHeight || 600) : 600;
+    const panelH = 110;
+    return { x: 16, y: Math.max(16, wh - panelH - 16) };
+  }, []);
   const [timerPos, setTimerPos] = useState(defaultTimerPos);
   const timerRef = useRef(null);
   const dragRef = useRef({ active: false, dx: 0, dy: 0 });
   const [timerDragging, setTimerDragging] = useState(false);
   const rafRef = useRef(0);
   const latestPosRef = useRef(timerPos);
+
+  useEffect(() => {
+    // Force default on load
+    setTimerCollapsed(true);
+    const wh = (typeof window !== 'undefined') ? (window.innerHeight || 600) : 600;
+    setTimerPos({ x: 16, y: Math.max(16, wh - 110 - 16) });
+  }, []);
 
   // Live clock for header (top-left)
   const [now, setNow] = useState(() => new Date());
@@ -1170,10 +1176,10 @@ export default function HomeworkApp() {
   const clockDate = now.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const clockTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // Persist settings once all related state is defined
+  // Persist settings (excluding timer UI position/state to keep defaults on refresh)
   useEffect(() => {
-    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed, timerPos });
-  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled, timerCollapsed, timerPos]);
+    saveSettings({ canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled });
+  }, [canvasIcsUrl, canvasBaseUrl, canvasToken, autoSyncEnabled, autoSyncSource, autoSyncIntervalMin, darkMode, currentUserId, notificationsEnabled]);
 
   const requestNotify = useCallback(async () => {
     if (!('Notification' in window)) { alert('Notifications not supported'); return; }

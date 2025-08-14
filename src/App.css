@@ -165,12 +165,9 @@ body {
 .cal-task { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: rgba(37,99,235,0.08); color: var(--text); border: 1px solid rgba(37,99,235,0.25); padding: 2px 6px; border-radius: 999px; }
 .cal-task.done { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); color: #065f46; }
 
-.timer-panel { margin: 0 18px 10px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: grid; gap: 10px; backdrop-filter: blur(6px); }
-.timer-panel.collapsed { grid-template-columns: 72px auto; padding-right: 6px; }
-.timer-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.timer-time { font-size: 24px; font-weight: 700; letter-spacing: 0.5px; color: var(--accent); }
-.timer-circle { position: relative; }
-.timer-time { font-size: 14px; letter-spacing: 0.5px; }
+.timer-panel { width: 320px; height: 110px; min-height: 110px; display: grid; grid-template-columns: 72px 1fr; }
+.timer-panel.collapsed { grid-template-columns: 72px 1fr; }
+.timer-collapsed-actions { position: absolute; left: 72px; bottom: 10px; display: inline-flex; gap: 6px; }
 
 .banner { margin: 0 18px 10px; padding: 12px; background: rgba(37,99,235,0.06); border: 1px solid rgba(37,99,235,0.25); color: var(--text); border-radius: 10px; font-size: 13px; }
 .banner .btn { margin-left: 8px; }

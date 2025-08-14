@@ -1158,6 +1158,8 @@ export default function HomeworkApp() {
   const timerRef = useRef(null);
   const dragRef = useRef({ active: false, dx: 0, dy: 0 });
   const [timerDragging, setTimerDragging] = useState(false);
+  const rafRef = useRef(0);
+  const latestPosRef = useRef(timerPos);
 
   // Live clock for header (top-left)
   const [now, setNow] = useState(() => new Date());
@@ -1204,21 +1206,32 @@ export default function HomeworkApp() {
     dragRef.current = { active: true, dx: offX, dy: offY };
     setTimerDragging(true);
     document.body.classList.add('timer-grabbing');
+    try { timerRef.current?.setPointerCapture?.(e.pointerId); } catch {}
     window.addEventListener('pointermove', onTimerPointerMove);
     window.addEventListener('pointerup', onTimerPointerUp, { once: true });
   };
   const onTimerPointerMove = (e) => {
     if (!dragRef.current.active) return;
-    const nextX = e.clientX - dragRef.current.dx;
-    const nextY = e.clientY - dragRef.current.dy;
-    const maxX = (window.innerWidth || 800) - (timerRef.current?.offsetWidth || 200) - 8;
-    const maxY = (window.innerHeight || 600) - (timerRef.current?.offsetHeight || 100) - 8;
-    setTimerPos({ x: Math.max(8, Math.min(maxX, nextX)), y: Math.max(8, Math.min(maxY, nextY)) });
+    const rawX = e.clientX - dragRef.current.dx;
+    const rawY = e.clientY - dragRef.current.dy;
+    const w = timerRef.current?.offsetWidth || 320;
+    const h = timerRef.current?.offsetHeight || 96;
+    const maxX = (window.innerWidth || 800) - w - 8;
+    const maxY = (window.innerHeight || 600) - h - 8;
+    const clamped = { x: Math.max(8, Math.min(maxX, rawX)), y: Math.max(8, Math.min(maxY, rawY)) };
+    latestPosRef.current = clamped;
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = 0;
+        setTimerPos(latestPosRef.current);
+      });
+    }
   };
   const onTimerPointerUp = () => {
     dragRef.current.active = false;
     setTimerDragging(false);
     document.body.classList.remove('timer-grabbing');
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0; }
     window.removeEventListener('pointermove', onTimerPointerMove);
   };
 
@@ -1588,13 +1601,13 @@ export default function HomeworkApp() {
       <button type="button" className="fab" aria-label="Create assignment" title="Create Assignment" onClick={beginAdd}>＋</button>
 
       {/* Bottom-left timer panel */}
-      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : ''} ${timerDragging ? 'dragging' : ''}`} role="region" aria-label="Focus timer" style={{ left: `${timerPos.x}px`, top: `${timerPos.y}px` }} onPointerDown={onTimerPointerDown} onClick={(e)=>{ e.stopPropagation(); if (timerCollapsed) setTimerCollapsed(false); }}>
+      <div ref={timerRef} className={`timer-panel ${timerCollapsed ? 'collapsed' : ''} ${timerDragging ? 'dragging' : ''}`} role="region" aria-label="Focus timer" style={{ transform: `translate(${timerPos.x}px, ${timerPos.y}px)` }} onPointerDown={onTimerPointerDown} onClick={(e)=>{ e.stopPropagation(); }}>
         {(() => {
           const total = Math.max(1, timerMinutes * 60);
           const progressDeg = Math.min(360, Math.max(0, (1 - (timeLeft / total)) * 360));
           return (
             <>
-              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }} onClick={(e)=>{ e.stopPropagation(); if (!timerCollapsed) setTimerOpen(true); else setTimerCollapsed(false); }}>
+              <div className="timer-circle" style={{ '--p': `${progressDeg}deg` }} onClick={(e)=>{ e.stopPropagation(); setTimerCollapsed(true); }}>
                 <div className="timer-time" aria-live="polite">
                   {String(Math.floor(timeLeft/60)).padStart(2,'0')}:{String(timeLeft%60).padStart(2,'0')}
                 </div>
@@ -1602,6 +1615,8 @@ export default function HomeworkApp() {
               {!timerCollapsed && (
                 <div className="timer-content">
                   <div className="timer-actions">
+                    <button type="button" className="icon-btn" title="Expand panel" onClick={(e)=>{ e.stopPropagation(); setTimerCollapsed(false); }}>▣</button>
+                    <button type="button" className="icon-btn" title="Fullscreen" onClick={(e)=>{ e.stopPropagation(); setTimerOpen(true); }}>⤢</button>
                     <button type="button" className="icon-btn" title={timerRunning ? 'Pause' : 'Start'} onClick={() => setTimerRunning(r => !r)}>{timerRunning ? '⏸️' : '▶️'}</button>
                     <button type="button" className="icon-btn" title="Reset" onClick={() => setTimeLeft(timerMinutes * 60)}>⟲</button>
                   </div>
@@ -1613,6 +1628,12 @@ export default function HomeworkApp() {
                   <div className="timer-edit-row">
                     <input className="input" type="number" min="1" max="240" value={timerMinutes} onChange={(e)=>{ const v=Math.max(1, Math.min(240, Number(e.target.value)||timerMinutes)); setTimerMinutes(v); setTimeLeft(v*60); }} aria-label="Minutes" placeholder="Minutes" style={{ width: 96 }} />
                   </div>
+                </div>
+              )}
+              {timerCollapsed && (
+                <div className="timer-collapsed-actions">
+                  <button type="button" className="icon-btn" title="Expand panel" onClick={(e)=>{ e.stopPropagation(); setTimerCollapsed(false); }}>▣</button>
+                  <button type="button" className="icon-btn" title="Fullscreen" onClick={(e)=>{ e.stopPropagation(); setTimerOpen(true); }}>⤢</button>
                 </div>
               )}
             </>
